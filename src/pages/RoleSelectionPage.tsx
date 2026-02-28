@@ -30,13 +30,13 @@ export default function RoleSelectionPage() {
   const handleOAuthCallback = async (userId: string) => {
     try {
       setProcessingOAuth(true);
+      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oauth-create-session`,
+        `${API_URL}/api/auth/oauth/session`,
         {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
-            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
           },
           body: JSON.stringify({ user_id: userId }),
         }
@@ -47,9 +47,8 @@ export default function RoleSelectionPage() {
         throw new Error(data.error || 'Failed to create session');
       }
 
-      if (data.session) {
-        const { error } = await supabase.auth.setSession(data.session);
-        if (error) throw error;
+      if (data.token) {
+        localStorage.setItem('auth_token', data.token);
         await refreshUser();
       }
     } catch (err: any) {

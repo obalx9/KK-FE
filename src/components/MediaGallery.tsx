@@ -45,26 +45,25 @@ export default function MediaGallery({ items, courseId, onMediaClick, courseWate
 
         try {
           let url: string;
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
           if (item.storage_path) {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            url = `${supabaseUrl}/storage/v1/object/public/course-media/${item.storage_path}`;
+            url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
           } else if (item.telegram_file_id) {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
             const fileId = isVideoFile(item) && item.telegram_thumbnail_file_id
               ? item.telegram_thumbnail_file_id
               : item.telegram_file_id;
 
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-              throw new Error('No session');
+            const authToken = localStorage.getItem('auth_token');
+            if (!authToken) {
+              throw new Error('No auth token');
             }
 
             const response = await fetch(
-              `${supabaseUrl}/functions/v1/telegram-media?file_id=${encodeURIComponent(fileId)}&course_id=${encodeURIComponent(courseId)}`,
+              `${API_URL}/api/media/${encodeURIComponent(fileId)}`,
               {
                 headers: {
-                  'Authorization': `Bearer ${session.access_token}`,
+                  'Authorization': `Bearer ${authToken}`,
                 },
               }
             );

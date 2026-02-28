@@ -970,22 +970,11 @@ export default function CourseFeed({
 
           if (postError) throw postError;
 
-          const { data: { session } } = await supabase.auth.getSession();
-          if (!session) throw new Error('No session');
-
-          const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-          const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
           await Promise.all(
             newPostMediaFiles.map((file, index) =>
-              fetch(`${supabaseUrl}/rest/v1/course_post_media`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'apikey': supabaseKey,
-                  'Authorization': `Bearer ${session.access_token}`,
-                },
-                body: JSON.stringify({
+              supabase
+                .from('course_post_media')
+                .insert({
                   post_id: newPost.id,
                   media_type: file.media_type,
                   storage_path: file.storage_path,
@@ -993,7 +982,6 @@ export default function CourseFeed({
                   file_size: file.file_size,
                   order_index: index,
                 })
-              })
             )
           );
 
@@ -1142,18 +1130,18 @@ export default function CourseFeed({
   };
 
   const getSecureMediaUrl = (fileId: string): string => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     // If fileId looks like a storage path (contains /), use public storage URL
     if (fileId.includes('/')) {
-      return `${supabaseUrl}/storage/v1/object/public/course-media/${fileId}`;
+      return `${API_URL}/api/storage/course-media/${fileId}`;
     }
 
-    // Otherwise, use telegram-media edge function for telegram files
-    const url = `${supabaseUrl}/functions/v1/telegram-media?file_id=${encodeURIComponent(fileId)}&course_id=${encodeURIComponent(courseId)}`;
+    // Otherwise, use telegram-media endpoint for telegram files
+    const url = `${API_URL}/api/media/${encodeURIComponent(fileId)}`;
 
     if (authToken) {
-      return `${url}&token=${encodeURIComponent(authToken)}`;
+      return `${url}?token=${encodeURIComponent(authToken)}`;
     }
 
     return url;

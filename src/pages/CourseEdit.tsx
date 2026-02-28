@@ -151,8 +151,8 @@ export default function CourseEdit() {
   };
 
   const handleThumbnailUpload = (storagePath: string) => {
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-    setThumbnailUrl(`${supabaseUrl}/storage/v1/object/public/course-media/${storagePath}`);
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    setThumbnailUrl(`${API_URL}/api/storage/course-media/${storagePath}`);
     setUploadingThumbnail(false);
   };
 

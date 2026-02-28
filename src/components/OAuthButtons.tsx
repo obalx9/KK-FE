@@ -33,10 +33,10 @@ export default function OAuthButtons({ className = '' }: OAuthButtonsProps) {
     setLoadingProvider(provider);
     setError(null);
 
-    const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
+    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
     if (provider === 'yandex') {
-      window.location.href = `${supabaseUrl}/functions/v1/oauth-login?provider=yandex`;
+      window.location.href = `${API_URL}/api/auth/oauth?provider=yandex`;
       return;
     }
 
@@ -46,9 +46,7 @@ export default function OAuthButtons({ className = '' }: OAuthButtonsProps) {
       const statePayload = btoa(JSON.stringify({ r: Math.random().toString(36).slice(2) }))
         .replace(/\+/g, '-').replace(/\//g, '_').replace(/=/g, '');
 
-      const edgeUrl = `${supabaseUrl}/functions/v1/oauth-login?provider=vk`;
-
-      const saveRes = await fetch(edgeUrl, {
+      const saveRes = await fetch(`${API_URL}/api/auth/oauth/pkce`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ code_verifier: codeVerifier, state: statePayload }),
@@ -61,7 +59,7 @@ export default function OAuthButtons({ className = '' }: OAuthButtonsProps) {
       }
 
       const VK_CLIENT_ID = import.meta.env.VITE_VK_CLIENT_ID;
-      const redirectUri = encodeURIComponent(`${supabaseUrl}/functions/v1/oauth-login?provider=vk`);
+      const redirectUri = encodeURIComponent(`${API_URL}/api/auth/oauth/callback?provider=vk`);
       const authUrl = `https://id.vk.ru/authorize?response_type=code&client_id=${VK_CLIENT_ID}&redirect_uri=${redirectUri}&code_challenge=${codeChallenge}&code_challenge_method=S256&state=${statePayload}&scope=vkid.personal_info`;
       window.location.href = authUrl;
     }

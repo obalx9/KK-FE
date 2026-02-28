@@ -46,25 +46,6 @@ export default function SellerRegistrationPage() {
         throw roleError;
       }
 
-      // Update auth user metadata with new roles
-      const response = await fetch(
-        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/update-user-roles`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${(await supabase.auth.getSession()).data.session?.access_token}`,
-          },
-          body: JSON.stringify({ user_id: user!.id }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update user roles');
-      }
-
-      // Refresh session to get new JWT with updated roles
-      await supabase.auth.refreshSession();
       await refreshUser();
       navigate('/seller/dashboard');
     } catch (err: any) {

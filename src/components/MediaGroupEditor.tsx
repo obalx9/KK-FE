@@ -290,23 +290,10 @@ export default function MediaGroupEditor({
 
   const updatePostMediaCount = async (count: number) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
-      }
-
-      const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-      const supabaseKey = import.meta.env.VITE_SUPABASE_ANON_KEY;
-
-      await fetch(`${supabaseUrl}/rest/v1/course_posts?id=eq.${postId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'apikey': supabaseKey,
-          'Authorization': `Bearer ${session.access_token}`
-        },
-        body: JSON.stringify({ media_count: count })
-      });
+      await supabase
+        .from('course_posts')
+        .update({ media_count: count })
+        .eq('id', postId);
     } catch (error) {
       console.error('Error updating media count:', error);
     }
@@ -344,22 +331,21 @@ export default function MediaGroupEditor({
 
         try {
           let url: string;
+          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
           if (item.storage_path) {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            url = `${supabaseUrl}/storage/v1/object/public/course-media/${item.storage_path}`;
+            url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
           } else if (item.telegram_file_id) {
-            const supabaseUrl = import.meta.env.VITE_SUPABASE_URL;
-            const { data: { session } } = await supabase.auth.getSession();
-            if (!session) {
-              throw new Error('No session');
+            const authToken = localStorage.getItem('auth_token');
+            if (!authToken) {
+              throw new Error('No auth token');
             }
 
             const response = await fetch(
-              `${supabaseUrl}/functions/v1/telegram-media?file_id=${encodeURIComponent(item.telegram_file_id)}&course_id=${encodeURIComponent(courseId)}`,
+              `${API_URL}/api/media/${encodeURIComponent(item.telegram_file_id)}`,
               {
                 headers: {
-                  'Authorization': `Bearer ${session.access_token}`,
+                  'Authorization': `Bearer ${authToken}`,
                 },
               }
             );
