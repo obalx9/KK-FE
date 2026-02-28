@@ -1,9 +1,16 @@
 #!/bin/sh
 set -e
 
+# Ensure dist directory exists
+mkdir -p dist
+
 BUILD_TIME=$(date -u +"%Y-%m-%d %H:%M:%S UTC")
 API_URL="${VITE_API_URL:-NOT SET}"
 VK_ID="${VITE_VK_CLIENT_ID:-NOT SET}"
+
+# Check if we can get node/npm versions
+NODE_VER=$(node --version 2>/dev/null || echo "N/A")
+NPM_VER=$(npm --version 2>/dev/null || echo "N/A")
 
 cat > dist/version.html << EOF
 <!DOCTYPE html>
@@ -66,12 +73,15 @@ cat > dist/version.html << EOF
         <pre><span class="key">Build Time:</span>    <span class="value">${BUILD_TIME}</span>
 <span class="key">API URL:</span>       <span class="value">${API_URL}</span>
 <span class="key">VK Client ID:</span>  <span class="value">${VK_ID}</span>
-<span class="key">Node Version:</span>  <span class="value">$(node --version 2>/dev/null || echo "N/A")</span>
-<span class="key">NPM Version:</span>   <span class="value">$(npm --version 2>/dev/null || echo "N/A")</span></pre>
+<span class="key">Node Version:</span>  <span class="value">${NODE_VER}</span>
+<span class="key">NPM Version:</span>   <span class="value">${NPM_VER}</span></pre>
     </div>
 </body>
 </html>
 EOF
 
+echo "========================================="
 echo "version.html generated successfully!"
-cat dist/version.html
+echo "Location: dist/version.html"
+echo "Size: $(wc -c < dist/version.html) bytes"
+echo "========================================="
