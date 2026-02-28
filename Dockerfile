@@ -6,6 +6,9 @@ COPY package*.json ./
 RUN npm ci
 
 COPY . .
+
+RUN chmod +x generate-env.sh && ./generate-env.sh
+
 RUN npm run build
 
 FROM nginx:alpine
