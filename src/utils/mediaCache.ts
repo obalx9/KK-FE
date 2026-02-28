@@ -1,4 +1,4 @@
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 
 class MediaCache {
   private cache: Map<string, string> = new Map();

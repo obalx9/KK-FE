@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useScrollPreferences } from '../contexts/ScrollPreferencesContext';
 import { useTheme } from '../contexts/ThemeContext';

@@ -2,17 +2,15 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { apiRequest } from '../lib/api';
+import { supabase } from '../lib/api';
 import { BookOpen, Store, LogOut, Sparkles, Copy, Check } from 'lucide-react';
 import KeyKursLogo from '../components/KeyKursLogo';
 import LanguageSelector from '../components/LanguageSelector';
 
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
-
 export default function RoleSelectionPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
-  const { user, loading, signOut, refreshUser, loginWithToken } = useAuth();
+  const { user, loading, signOut, refreshUser } = useAuth();
   const { t } = useLanguage();
   const [selecting, setSelecting] = useState(false);
   const [selectedRole, setSelectedRole] = useState<string | null>(null);
@@ -32,19 +30,31 @@ export default function RoleSelectionPage() {
   const handleOAuthCallback = async (userId: string) => {
     try {
       setProcessingOAuth(true);
-      const data = await apiRequest<{ token: string }>('/api/auth/oauth/session', {
-        method: 'POST',
-        body: { user_id: userId },
-      });
+      const response = await fetch(
+        `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/oauth-create-session`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+          },
+          body: JSON.stringify({ user_id: userId }),
+        }
+      );
 
-      if (data.token) {
-        await loginWithToken(data.token);
+      const data = await response.json();
+      if (!response.ok) {
+        throw new Error(data.error || 'Failed to create session');
+      }
+
+      if (data.session) {
+        const { error } = await supabase.auth.setSession(data.session);
+        if (error) throw error;
         await refreshUser();
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Authentication failed';
+    } catch (err: any) {
       console.error('OAuth callback error:', err);
-      setError(message);
+      setError(err.message || 'Authentication failed');
       setTimeout(() => navigate('/login'), 2000);
     } finally {
       setProcessingOAuth(false);
@@ -73,9 +83,9 @@ export default function RoleSelectionPage() {
       setError(null);
       await new Promise(resolve => setTimeout(resolve, 600));
       navigate('/student');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to select role';
-      setError(message);
+    } catch (err: any) {
+      console.error('Error selecting student role:', err);
+      setError(err.message || 'Failed to select role');
       setSelecting(false);
       setSelectedRole(null);
     }
@@ -87,20 +97,22 @@ export default function RoleSelectionPage() {
       setSelectedRole('seller');
       setError(null);
 
-      const data = await apiRequest<{ has_seller: boolean }>('/api/sellers/check', {
-        token: null,
-      });
+      const { data: seller } = await supabase
+        .from('sellers')
+        .select('id')
+        .eq('user_id', user.id)
+        .maybeSingle();
 
       await new Promise(resolve => setTimeout(resolve, 600));
 
-      if (data.has_seller) {
+      if (seller) {
         navigate('/seller/dashboard');
       } else {
         navigate('/register-seller');
       }
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to select role';
-      setError(message);
+    } catch (err: any) {
+      console.error('Error selecting seller role:', err);
+      setError(err.message || 'Failed to select role');
       setSelecting(false);
       setSelectedRole(null);
     }
@@ -110,14 +122,14 @@ export default function RoleSelectionPage() {
     try {
       await signOut();
       navigate('/login');
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : 'Failed to sign out';
-      setError(message);
+    } catch (err: any) {
+      console.error('Error signing out:', err);
+      setError(err.message || 'Failed to sign out');
     }
   };
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-slate-900 flex items-center justify-center p-4 overflow-hidden">
+    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-purple-900 to-slate-900 flex items-center justify-center p-4 overflow-hidden">
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute -top-40 -right-40 w-80 h-80 bg-teal-500/10 rounded-full blur-3xl" />
         <div className="absolute -bottom-40 -left-40 w-80 h-80 bg-blue-500/10 rounded-full blur-3xl" />
@@ -184,8 +196,12 @@ export default function RoleSelectionPage() {
                 <BookOpen className="w-8 h-8 text-white" />
               </div>
 
-              <h2 className="text-2xl font-bold text-white mb-3">Студент</h2>
-              <p className="text-gray-300 mb-6">Расширяй свои навыки. Обучайся у лучших преподавателей на платформе.</p>
+              <h2 className="text-2xl font-bold text-white mb-3">
+                Студент
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Расширяй свои навыки. Обучайся у лучших преподавателей на платформе.
+              </p>
 
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-3 text-gray-200">
@@ -226,8 +242,12 @@ export default function RoleSelectionPage() {
                 <Store className="w-8 h-8 text-white" />
               </div>
 
-              <h2 className="text-2xl font-bold text-white mb-3">Селлер</h2>
-              <p className="text-gray-300 mb-6">Делись знаниями. Создавай курсы и зарабатывай на образовании.</p>
+              <h2 className="text-2xl font-bold text-white mb-3">
+                Селлер
+              </h2>
+              <p className="text-gray-300 mb-6">
+                Делись знаниями. Создавай курсы и зарабатывай на образовании.
+              </p>
 
               <ul className="space-y-3 mb-8">
                 <li className="flex items-center gap-3 text-gray-200">
@@ -281,6 +301,7 @@ export default function RoleSelectionPage() {
               Выйти
             </button>
           </div>
+
         </div>
       </div>
     </div>

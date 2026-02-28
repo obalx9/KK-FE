@@ -1,7 +1,7 @@
 import { useEffect, useState, useRef } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import { ArrowLeft, Search, Maximize2, ArrowDown, Loader2 } from 'lucide-react';
 import CourseFeed from '../components/CourseFeed';
 import PinnedPostsSidebar from '../components/PinnedPostsSidebar';

@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import { BookOpen, LogOut, Store, Copy, Check } from 'lucide-react';
 import KeyKursLogo from '../components/KeyKursLogo';
 import LanguageSelector from '../components/LanguageSelector';

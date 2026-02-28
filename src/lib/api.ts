@@ -1,117 +1,101 @@
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
-interface RequestOptions {
-  method?: string;
-  body?: unknown;
-  headers?: Record<string, string>;
-  token?: string | null;
-}
+export type UserRole = 'super_admin' | 'seller' | 'student';
 
-export async function apiRequest<T = unknown>(
-  path: string,
-  options: RequestOptions = {}
-): Promise<T> {
-  const { method = 'GET', body, headers = {}, token } = options;
-
-  const authToken = token ?? getStoredToken();
-
-  const reqHeaders: Record<string, string> = {
-    'Content-Type': 'application/json',
-    ...headers,
-  };
-
-  if (authToken) {
-    reqHeaders['Authorization'] = `Bearer ${authToken}`;
-  }
-
-  const res = await fetch(`${API_URL}${path}`, {
-    method,
-    headers: reqHeaders,
-    body: body != null ? JSON.stringify(body) : undefined,
-  });
-
-  if (!res.ok) {
-    let errMsg = `HTTP ${res.status}`;
-    try {
-      const errJson = await res.json();
-      errMsg = errJson.error || errMsg;
-    } catch {
-      // ignore
-    }
-    throw new Error(errMsg);
-  }
-
-  return res.json();
-}
-
-export function getStoredToken(): string | null {
-  return localStorage.getItem('auth_token');
-}
-
-export function setStoredToken(token: string): void {
-  localStorage.setItem('auth_token', token);
-}
-
-export function clearStoredToken(): void {
-  localStorage.removeItem('auth_token');
-  localStorage.removeItem('auth_user');
-}
-
-export function getStoredUser(): StoredUser | null {
-  try {
-    const raw = localStorage.getItem('auth_user');
-    return raw ? JSON.parse(raw) : null;
-  } catch {
-    return null;
-  }
-}
-
-export function setStoredUser(user: StoredUser): void {
-  localStorage.setItem('auth_user', JSON.stringify(user));
-}
-
-export interface StoredUser {
+export interface User {
   id: string;
-  user_id?: string;
-  telegram_id?: number;
+  telegram_id: number;
   telegram_username?: string;
   first_name?: string;
   last_name?: string;
   photo_url?: string;
-  email?: string;
-  oauth_provider?: string;
-  roles: string[];
+  created_at: string;
 }
 
-export const getMediaUrl = (fileId: string): string => {
-  if (!fileId) return '';
-  return `${API_URL}/api/media/${encodeURIComponent(fileId)}`;
-};
+export interface UserRoleRecord {
+  id: string;
+  user_id: string;
+  role: 'super_admin' | 'seller' | 'student';
+  created_at: string;
+}
 
-export const getMediaUrlWithToken = (fileId: string, token: string): string => {
-  if (!fileId) return '';
-  return `${API_URL}/api/media/${encodeURIComponent(fileId)}?token=${encodeURIComponent(token)}`;
-};
+export interface Seller {
+  id: string;
+  user_id: string;
+  business_name: string;
+  description: string;
+  is_approved: boolean;
+  created_at: string;
+}
 
 export interface Course {
   id: string;
   seller_id: string;
   title: string;
-  description?: string;
+  description: string;
   thumbnail_url?: string;
+  is_published: boolean;
+  created_at: string;
+  updated_at: string;
   telegram_bot_id?: string;
   telegram_channel_id?: string;
   price?: number;
   currency?: string;
-  is_published: boolean;
   is_premium?: boolean;
   is_featured?: boolean;
   show_watermark?: boolean;
   watermark_text?: string;
   theme_preset?: string;
   theme_config?: Record<string, unknown>;
-  created_at?: string;
-  updated_at?: string;
+}
+
+export interface CourseModule {
+  id: string;
+  course_id: string;
+  title: string;
+  description: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface CourseLesson {
+  id: string;
+  module_id: string;
+  title: string;
+  description: string;
+  order_index: number;
+  duration_minutes: number;
+  created_at: string;
+}
+
+export interface LessonContent {
+  id: string;
+  lesson_id: string;
+  content_type: 'video' | 'text' | 'file' | 'image';
+  video_url?: string;
+  text_content?: string;
+  file_url?: string;
+  file_name?: string;
+  order_index: number;
+  created_at: string;
+}
+
+export interface CourseEnrollment {
+  id: string;
+  course_id: string;
+  student_id: string;
+  granted_by: string;
+  enrolled_at: string;
+  expires_at?: string;
+}
+
+export interface LessonProgress {
+  id: string;
+  enrollment_id: string;
+  lesson_id: string;
+  completed: boolean;
+  last_position_seconds: number;
+  updated_at: string;
 }
 
 export interface CoursePost {
@@ -138,13 +122,6 @@ export interface CoursePostMedia {
   position?: number;
 }
 
-export interface Enrollment {
-  id: string;
-  course_id: string;
-  student_id: string;
-  enrolled_at?: string;
-}
-
 export interface PendingEnrollment {
   id: string;
   course_id: string;
@@ -168,91 +145,368 @@ export interface TelegramBot {
   created_at?: string;
 }
 
-export const coursesApi = {
-  list: () => apiRequest<Course[]>('/api/courses'),
-  get: (id: string) => apiRequest<Course>(`/api/courses/${id}`),
-  create: (data: Partial<Course>) => apiRequest<Course>('/api/courses', { method: 'POST', body: data }),
-  update: (id: string, data: Partial<Course>) => apiRequest<Course>(`/api/courses/${id}`, { method: 'PUT', body: data }),
-  delete: (id: string) => apiRequest<void>(`/api/courses/${id}`, { method: 'DELETE' }),
-  publish: (id: string) => apiRequest<Course>(`/api/courses/${id}/publish`, { method: 'POST' }),
-  unpublish: (id: string) => apiRequest<Course>(`/api/courses/${id}/unpublish`, { method: 'POST' }),
-};
+export interface TelegramImportSession {
+  id: string;
+  bot_id: string;
+  course_id: string;
+  channel_id: string;
+  status: 'pending' | 'in_progress' | 'completed' | 'failed';
+  total_messages?: number;
+  processed_messages?: number;
+  created_at?: string;
+  completed_at?: string;
+}
 
-export const postsApi = {
-  list: (courseId: string) => apiRequest<CoursePost[]>(`/api/courses/${courseId}/posts`),
-  get: (postId: string) => apiRequest<CoursePost>(`/api/posts/${postId}`),
-  create: (courseId: string, data: Partial<CoursePost>) => apiRequest<CoursePost>(`/api/courses/${courseId}/posts`, { method: 'POST', body: data }),
-  update: (postId: string, data: Partial<CoursePost>) => apiRequest<CoursePost>(`/api/posts/${postId}`, { method: 'PUT', body: data }),
-  delete: (postId: string) => apiRequest<void>(`/api/posts/${postId}`, { method: 'DELETE' }),
-  getMedia: (postId: string) => apiRequest<CoursePostMedia[]>(`/api/posts/${postId}/media`),
-};
+function getAuthToken(): string | null {
+  return localStorage.getItem('auth_token');
+}
 
-export const enrollmentsApi = {
-  list: (courseId: string) => apiRequest<Enrollment[]>(`/api/courses/${courseId}/enrollments`),
-  enroll: (courseId: string) => apiRequest<Enrollment>(`/api/courses/${courseId}/enroll`, { method: 'POST' }),
-  unenroll: (courseId: string) => apiRequest<void>(`/api/courses/${courseId}/unenroll`, { method: 'DELETE' }),
-  pending: (courseId: string) => apiRequest<PendingEnrollment[]>(`/api/courses/${courseId}/pending`),
-  approvePending: (enrollmentId: string) => apiRequest<Enrollment>(`/api/pending-enrollments/${enrollmentId}/approve`, { method: 'POST' }),
-  rejectPending: (enrollmentId: string) => apiRequest<void>(`/api/pending-enrollments/${enrollmentId}/reject`, { method: 'DELETE' }),
-};
+async function apiRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ data: T | null; error: Error | null }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
 
-export const pinnedPostsApi = {
-  list: () => apiRequest<StudentPinnedPost[]>('/api/pinned-posts'),
-  pin: (postId: string) => apiRequest<StudentPinnedPost>('/api/pinned-posts', { method: 'POST', body: { post_id: postId } }),
-  unpin: (postId: string) => apiRequest<void>(`/api/pinned-posts/${postId}`, { method: 'DELETE' }),
-};
-
-export const telegramApi = {
-  getBots: () => apiRequest<TelegramBot[]>('/api/telegram/bots'),
-  createBot: (data: { bot_token: string }) => apiRequest<TelegramBot>('/api/telegram/bots', { method: 'POST', body: data }),
-  deleteBot: (botId: string) => apiRequest<void>(`/api/telegram/bots/${botId}`, { method: 'DELETE' }),
-  syncChannel: (botId: string, channelId: string) => apiRequest<{ message: string }>('/api/telegram/sync', { method: 'POST', body: { bot_id: botId, channel_id: channelId } }),
-};
-
-export const storageApi = {
-  upload: async (bucket: string, path: string, file: File): Promise<{ path: string }> => {
-    const formData = new FormData();
-    formData.append('file', file);
-    formData.append('bucket', bucket);
-    formData.append('path', path);
-
-    const authToken = getStoredToken();
-    const headers: Record<string, string> = {};
-    if (authToken) {
-      headers['Authorization'] = `Bearer ${authToken}`;
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
     }
 
-    const res = await fetch(`${API_URL}/api/storage/upload`, {
-      method: 'POST',
+    const response = await fetch(`${API_URL}${path}`, {
+      method,
       headers,
-      body: formData,
+      body: body ? JSON.stringify(body) : undefined,
     });
 
-    if (!res.ok) {
-      throw new Error(`Upload failed: ${res.status}`);
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      return { data: null, error: new Error(errorData.error || `HTTP ${response.status}`) };
     }
 
-    return res.json();
-  },
+    const data = await response.json();
+    return { data, error: null };
+  } catch (error) {
+    return { data: null, error: error as Error };
+  }
+}
 
-  delete: async (bucket: string, paths: string[]): Promise<void> => {
-    await apiRequest('/api/storage/delete', {
-      method: 'DELETE',
-      body: { bucket, paths },
+class SupabaseQueryBuilder<T> {
+  private tableName: string;
+  private selectFields: string = '*';
+  private filters: Array<{ column: string; operator: string; value: unknown }> = [];
+  private orderByField?: { column: string; ascending: boolean };
+  private limitValue?: number;
+  private singleResult = false;
+  private maybeSingleResult = false;
+
+  constructor(tableName: string) {
+    this.tableName = tableName;
+  }
+
+  select(fields: string = '*') {
+    this.selectFields = fields;
+    return this;
+  }
+
+  eq(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'eq', value });
+    return this;
+  }
+
+  neq(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'neq', value });
+    return this;
+  }
+
+  gt(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'gt', value });
+    return this;
+  }
+
+  gte(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'gte', value });
+    return this;
+  }
+
+  lt(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'lt', value });
+    return this;
+  }
+
+  lte(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'lte', value });
+    return this;
+  }
+
+  like(column: string, pattern: string) {
+    this.filters.push({ column, operator: 'like', value: pattern });
+    return this;
+  }
+
+  ilike(column: string, pattern: string) {
+    this.filters.push({ column, operator: 'ilike', value: pattern });
+    return this;
+  }
+
+  is(column: string, value: unknown) {
+    this.filters.push({ column, operator: 'is', value });
+    return this;
+  }
+
+  in(column: string, values: unknown[]) {
+    this.filters.push({ column, operator: 'in', value: values });
+    return this;
+  }
+
+  order(column: string, options?: { ascending?: boolean }) {
+    this.orderByField = { column, ascending: options?.ascending ?? true };
+    return this;
+  }
+
+  limit(count: number) {
+    this.limitValue = count;
+    return this;
+  }
+
+  single() {
+    this.singleResult = true;
+    return this;
+  }
+
+  maybeSingle() {
+    this.maybeSingleResult = true;
+    return this;
+  }
+
+  async then<TResult1 = { data: T | T[] | null; error: Error | null }, TResult2 = never>(
+    onfulfilled?: ((value: { data: T | T[] | null; error: Error | null }) => TResult1 | PromiseLike<TResult1>) | undefined | null,
+    onrejected?: ((reason: unknown) => TResult2 | PromiseLike<TResult2>) | undefined | null
+  ): Promise<TResult1 | TResult2> {
+    const params = new URLSearchParams();
+    params.append('select', this.selectFields);
+
+    this.filters.forEach(filter => {
+      params.append(`${filter.column}.${filter.operator}`, String(filter.value));
     });
+
+    if (this.orderByField) {
+      params.append('order', `${this.orderByField.column}.${this.orderByField.ascending ? 'asc' : 'desc'}`);
+    }
+
+    if (this.limitValue) {
+      params.append('limit', String(this.limitValue));
+    }
+
+    const result = await apiRequest<T | T[]>(
+      'GET',
+      `/api/db/${this.tableName}?${params.toString()}`
+    );
+
+    if (this.singleResult || this.maybeSingleResult) {
+      const data = result.data as T[] | null;
+      if (this.singleResult && (!data || data.length === 0)) {
+        return Promise.resolve(onfulfilled?.({ data: null, error: new Error('No rows found') }) as TResult1);
+      }
+      return Promise.resolve(onfulfilled?.({ data: data?.[0] || null, error: result.error }) as TResult1);
+    }
+
+    return Promise.resolve(onfulfilled?.({ data: result.data, error: result.error }) as TResult1);
+  }
+}
+
+class SupabaseTable<T> {
+  constructor(private tableName: string) {}
+
+  select(fields?: string) {
+    return new SupabaseQueryBuilder<T>(this.tableName).select(fields);
+  }
+
+  async insert(data: Partial<T> | Partial<T>[]) {
+    return apiRequest<T>('POST', `/api/db/${this.tableName}`, data);
+  }
+
+  async update(data: Partial<T>) {
+    return apiRequest<T>('PATCH', `/api/db/${this.tableName}`, data);
+  }
+
+  async delete() {
+    return apiRequest<void>('DELETE', `/api/db/${this.tableName}`);
+  }
+
+  async upsert(data: Partial<T> | Partial<T>[]) {
+    return apiRequest<T>('POST', `/api/db/${this.tableName}/upsert`, data);
+  }
+}
+
+class SupabaseStorage {
+  from(bucket: string) {
+    return {
+      upload: async (path: string, file: File) => {
+        const formData = new FormData();
+        formData.append('file', file);
+
+        const token = getAuthToken();
+        const headers: Record<string, string> = {};
+        if (token) {
+          headers['Authorization'] = `Bearer ${token}`;
+        }
+
+        const response = await fetch(`${API_URL}/api/storage/${bucket}/upload?path=${encodeURIComponent(path)}`, {
+          method: 'POST',
+          headers,
+          body: formData,
+        });
+
+        if (!response.ok) {
+          const errorData = await response.json().catch(() => ({ error: 'Upload failed' }));
+          return { data: null, error: new Error(errorData.error) };
+        }
+
+        const data = await response.json();
+        return { data, error: null };
+      },
+
+      remove: async (paths: string[]) => {
+        return apiRequest<void>('DELETE', `/api/storage/${bucket}/files`, { paths });
+      },
+
+      getPublicUrl: (path: string) => {
+        return {
+          data: {
+            publicUrl: `${API_URL}/api/storage/${bucket}/${path}`
+          }
+        };
+      },
+
+      createSignedUrl: async (path: string, expiresIn: number) => {
+        const result = await apiRequest<{ signedUrl: string }>('POST', `/api/storage/${bucket}/sign`, {
+          path,
+          expiresIn
+        });
+        return {
+          data: result.data ? { signedUrl: result.data.signedUrl } : null,
+          error: result.error
+        };
+      },
+    };
+  }
+}
+
+class SupabaseAuth {
+  async signInWithPassword(credentials: { email: string; password: string }) {
+    const result = await apiRequest<{ user: User; token: string }>('POST', '/api/auth/login', credentials);
+
+    if (result.data) {
+      localStorage.setItem('auth_token', result.data.token);
+      localStorage.setItem('auth_user', JSON.stringify(result.data.user));
+    }
+
+    return {
+      data: result.data ? { user: result.data.user, session: { access_token: result.data.token } } : null,
+      error: result.error
+    };
+  }
+
+  async signUp(credentials: { email: string; password: string }) {
+    const result = await apiRequest<{ user: User; token: string }>('POST', '/api/auth/register', credentials);
+
+    if (result.data) {
+      localStorage.setItem('auth_token', result.data.token);
+      localStorage.setItem('auth_user', JSON.stringify(result.data.user));
+    }
+
+    return {
+      data: result.data ? { user: result.data.user, session: { access_token: result.data.token } } : null,
+      error: result.error
+    };
+  }
+
+  async signOut() {
+    localStorage.removeItem('auth_token');
+    localStorage.removeItem('auth_user');
+    return { error: null };
+  }
+
+  async getUser() {
+    const userStr = localStorage.getItem('auth_user');
+    if (!userStr) {
+      return { data: { user: null }, error: null };
+    }
+
+    try {
+      const user = JSON.parse(userStr);
+      return { data: { user }, error: null };
+    } catch {
+      return { data: { user: null }, error: null };
+    }
+  }
+
+  async getSession() {
+    const token = getAuthToken();
+    const userStr = localStorage.getItem('auth_user');
+
+    if (!token || !userStr) {
+      return { data: { session: null }, error: null };
+    }
+
+    try {
+      const user = JSON.parse(userStr);
+      return {
+        data: {
+          session: {
+            access_token: token,
+            user
+          }
+        },
+        error: null
+      };
+    } catch {
+      return { data: { session: null }, error: null };
+    }
+  }
+
+  onAuthStateChange(callback: (event: string, session: unknown) => void) {
+    return {
+      data: { subscription: { unsubscribe: () => {} } },
+    };
+  }
+}
+
+export const supabase = {
+  from<T = unknown>(table: string) {
+    return new SupabaseTable<T>(table);
   },
 
-  getPublicUrl: (bucket: string, path: string): string => {
-    return `${API_URL}/api/storage/${bucket}/${path}`;
+  storage: new SupabaseStorage(),
+  auth: new SupabaseAuth(),
+
+  channel(name: string) {
+    return {
+      on: () => ({
+        on: () => ({
+          subscribe: () => ({
+            unsubscribe: () => {}
+          })
+        })
+      })
+    };
+  },
+
+  rpc: async <T>(functionName: string, params?: Record<string, unknown>) => {
+    return apiRequest<T>('POST', `/api/rpc/${functionName}`, params);
   },
 };
 
-export const adminApi = {
-  listUsers: () => apiRequest<StoredUser[]>('/api/admin/users'),
-  updateUserRoles: (userId: string, roles: string[]) => apiRequest<StoredUser>(`/api/admin/users/${userId}/roles`, { method: 'PUT', body: { roles } }),
-  listPremiumCourses: () => apiRequest<Course[]>('/api/admin/premium-courses'),
-  setPremium: (courseId: string, isPremium: boolean) => apiRequest<Course>(`/api/admin/courses/${courseId}/premium`, { method: 'PUT', body: { is_premium: isPremium } }),
-  listFeaturedCourses: () => apiRequest<Course[]>('/api/admin/featured-courses'),
-  setFeatured: (courseId: string, isFeatured: boolean) => apiRequest<Course>(`/api/admin/courses/${courseId}/featured`, { method: 'PUT', body: { is_featured: isFeatured } }),
-  listAdCourses: () => apiRequest<Course[]>('/api/admin/ad-courses'),
+export const getMediaUrl = (fileId: string): string => {
+  if (!fileId) return '';
+  return `${API_URL}/api/media/${encodeURIComponent(fileId)}`;
+};
+
+export const getMediaUrlWithToken = (fileId: string, token: string): string => {
+  if (!fileId) return '';
+  return `${API_URL}/api/media/${encodeURIComponent(fileId)}?token=${encodeURIComponent(token)}`;
 };

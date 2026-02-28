@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { /* supabase removed */ } from '../../lib/api';
+import { supabase } from '../../lib/api';
 import { Plus, Edit2, Trash2, X, Save, ArrowUp, ArrowDown, Star } from 'lucide-react';
 
 interface FeaturedCourse {

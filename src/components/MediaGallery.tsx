@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play } from 'lucide-react';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 
 export interface MediaItem {
   id: string;

@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { X, Send, Check, AlertCircle, Copy, ExternalLink, Plus, Trash2, Radio } from 'lucide-react';
 

@@ -1,9 +1,7 @@
 import { useState } from 'react';
+import { supabase } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Upload, X, Loader } from 'lucide-react';
-import { getStoredToken } from '../lib/api';
-
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
 interface FileUploadProps {
   courseId: string;
@@ -26,34 +24,26 @@ export default function FileUpload({ courseId, lessonId, onUploadComplete }: Fil
     setUploadProgress(0);
 
     try {
-      const formData = new FormData();
-      formData.append('file', file);
-      formData.append('course_id', courseId);
-      if (lessonId) {
-        formData.append('lesson_id', lessonId);
-      }
+      const fileExt = file.name.split('.').pop();
+      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
+      const filePath = lessonId
+        ? `${courseId}/${lessonId}/${fileName}`
+        : `${courseId}/${fileName}`;
 
-      const token = getStoredToken();
-      const res = await fetch(`${API_URL}/api/media/upload`, {
-        method: 'POST',
-        headers: token ? { Authorization: `Bearer ${token}` } : {},
-        body: formData,
-      });
+      const { error: uploadError } = await supabase.storage
+        .from('course-media')
+        .upload(filePath, file, {
+          cacheControl: '3600',
+          upsert: false
+        });
 
-      setUploadProgress(50);
+      if (uploadError) throw uploadError;
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `HTTP ${res.status}`);
-      }
-
-      const data = await res.json();
       setUploadProgress(100);
-      onUploadComplete(data.storage_path, file.size, file.name);
-    } catch (err: unknown) {
-      const message = err instanceof Error ? err.message : t('uploadFailed');
+      onUploadComplete(filePath, file.size, file.name);
+    } catch (err: any) {
       console.error('Upload error:', err);
-      setError(message);
+      setError(err.message || t('uploadFailed'));
     } finally {
       setUploading(false);
     }

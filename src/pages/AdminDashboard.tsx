@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import { Shield, Users, Store, BookOpen, LogOut, Check, X, Crown, Megaphone, Star, Bot, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import LanguageSelector from '../components/LanguageSelector';
 import ThemeToggle from '../components/ThemeToggle';

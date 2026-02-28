@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Upload, GripVertical, X, Save, Video } from 'lucide-react';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import FileUpload from './FileUpload';
 import type { MediaItem } from './MediaGallery';
 

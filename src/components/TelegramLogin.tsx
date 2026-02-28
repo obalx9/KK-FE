@@ -1,7 +1,8 @@
 import { useEffect, useState, useRef } from 'react';
+import { supabase } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
-import { apiRequest } from '../lib/api';
+import { Send } from 'lucide-react';
 
 interface TelegramLoginProps {
   onSuccess?: () => void;
@@ -9,13 +10,13 @@ interface TelegramLoginProps {
 
 declare global {
   interface Window {
-    onTelegramAuth?: (user: unknown) => void;
+    onTelegramAuth?: (user: any) => void;
   }
 }
 
 export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
   const { t } = useLanguage();
-  const { loginWithToken } = useAuth();
+  const { refreshUser } = useAuth();
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [botUsername, setBotUsername] = useState<string>('');
@@ -25,14 +26,31 @@ export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
   useEffect(() => {
     const loadBotConfig = async () => {
       try {
-        const data = await apiRequest<{ bot_username: string }>('/api/telegram/bot-username');
-        if (data.bot_username) {
-          setBotUsername(data.bot_username);
+        const { data: mainBot } = await supabase
+          .from('telegram_main_bot')
+          .select('bot_username')
+          .eq('is_active', true)
+          .maybeSingle();
+
+        if (mainBot?.bot_username) {
+          setBotUsername(mainBot.bot_username);
+          return;
+        }
+
+        const { data: fallbackBot } = await supabase
+          .from('telegram_bots')
+          .select('bot_username')
+          .limit(1)
+          .maybeSingle();
+
+        if (fallbackBot?.bot_username) {
+          setBotUsername(fallbackBot.bot_username);
         }
       } catch (err) {
         console.error('Error loading bot config:', err);
       }
     };
+
     loadBotConfig();
   }, []);
 
@@ -41,29 +59,65 @@ export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
 
     scriptLoadedRef.current = true;
 
-    window.onTelegramAuth = async (user: unknown) => {
+    window.onTelegramAuth = async (user: any) => {
       setLoading(true);
       setError(null);
 
       try {
-        const data = await apiRequest<{ token: string }>('/api/auth/telegram', {
-          method: 'POST',
-          body: user,
-        });
+        const response = await fetch(
+          `${import.meta.env.VITE_SUPABASE_URL}/functions/v1/telegram-auth`,
+          {
+            method: 'POST',
+            headers: {
+              'Authorization': `Bearer ${import.meta.env.VITE_SUPABASE_ANON_KEY}`,
+              'Content-Type': 'application/json',
+            },
+            body: JSON.stringify(user),
+          }
+        );
 
-        if (!data.token) {
-          throw new Error('No token in response');
+        const responseText = await response.text();
+
+        if (!responseText) {
+          throw new Error('Empty response from server');
         }
 
-        await loginWithToken(data.token);
-
-        if (onSuccess) {
-          onSuccess();
+        let data;
+        try {
+          data = JSON.parse(responseText);
+        } catch (parseError) {
+          throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
         }
-      } catch (err: unknown) {
-        const message = err instanceof Error ? err.message : t('authError');
+
+        if (data.error) {
+          throw new Error(data.error);
+        }
+
+        if (data.magic_link) {
+          const url = new URL(data.magic_link);
+          const token = url.searchParams.get('token');
+          const type = url.searchParams.get('type');
+
+          if (token && type) {
+            const { error: verifyError } = await supabase.auth.verifyOtp({
+              token_hash: token,
+              type: 'magiclink',
+            });
+
+            if (verifyError) throw verifyError;
+
+            await refreshUser();
+
+            if (onSuccess) {
+              onSuccess();
+            }
+          }
+        } else {
+          throw new Error('No magic_link in response');
+        }
+      } catch (err: any) {
         console.error('Telegram auth error:', err);
-        setError(message);
+        setError(err.message || t('authError'));
       } finally {
         setLoading(false);
       }
@@ -100,7 +154,7 @@ export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
       }
       delete window.onTelegramAuth;
     };
-  }, [botUsername, onSuccess, t, loginWithToken]);
+  }, [botUsername, onSuccess, t]);
 
   if (!botUsername) {
     return (

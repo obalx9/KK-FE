@@ -1,20 +1,30 @@
 import { useLanguage } from '../contexts/LanguageContext';
-import { Globe } from 'lucide-react';
 
 export default function LanguageSelector() {
   const { language, setLanguage } = useLanguage();
 
   return (
-    <div className="flex items-center gap-2 bg-white/10 backdrop-blur-md rounded-lg border border-white/20 px-3 py-2">
-      <Globe className="w-4 h-4 text-gray-400" />
-      <select
-        value={language}
-        onChange={(e) => setLanguage(e.target.value as 'ru' | 'en')}
-        className="bg-transparent text-white text-sm border-none outline-none cursor-pointer"
+    <div className="flex items-center rounded-lg border border-gray-200 dark:border-gray-700 overflow-hidden text-sm font-medium">
+      <button
+        onClick={() => setLanguage('ru')}
+        className={`px-2.5 py-1.5 transition-colors ${
+          language === 'ru'
+            ? 'bg-teal-500 text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+        }`}
       >
-        <option value="ru">РУ</option>
-        <option value="en">EN</option>
-      </select>
+        RU
+      </button>
+      <button
+        onClick={() => setLanguage('en')}
+        className={`px-2.5 py-1.5 transition-colors ${
+          language === 'en'
+            ? 'bg-teal-500 text-white'
+            : 'bg-white dark:bg-gray-800 text-gray-500 dark:text-gray-400 hover:text-gray-900 dark:hover:text-gray-100'
+        }`}
+      >
+        EN
+      </button>
     </div>
   );
 }

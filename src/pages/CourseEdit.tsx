@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { /* supabase removed */ } from '../lib/api';
+import { supabase } from '../lib/api';
 import {
   ArrowLeft, Save, Eye, EyeOff, Settings, Search, Upload, X, Users,
   ExternalLink, Palette, Copy, Check, Send, LayoutList, ChevronDown,
