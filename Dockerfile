@@ -17,7 +17,22 @@ COPY . .
 
 RUN chmod +x generate-env.sh && ./generate-env.sh
 
+# Debug: Show environment variables before build
+RUN echo "=========================================" && \
+    echo "Environment check before npm build:" && \
+    echo "VITE_API_URL=${VITE_API_URL}" && \
+    echo "VITE_VK_CLIENT_ID=${VITE_VK_CLIENT_ID}" && \
+    cat .env && \
+    echo "========================================="
+
 RUN npm run build
+
+# Debug: Check if env vars are embedded in build
+RUN echo "=========================================" && \
+    echo "Checking built files for API URL..." && \
+    grep -r "api.keykurs.ru" dist/ || echo "WARNING: API URL not found in build!" && \
+    grep -r "localhost:3000" dist/ || echo "Good: No localhost references" && \
+    echo "========================================="
 
 # Generate version.html with build information
 RUN chmod +x generate-version.sh && ./generate-version.sh

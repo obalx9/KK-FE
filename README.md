@@ -34,17 +34,6 @@ docker run -p 80:80 keykurs-frontend
 3. Добавьте переменные окружения из `.env.example`
 4. Timeweb автоматически пересоберёт при каждом push в main
 
-### Проверка деплоя
-
-После успешного деплоя проверьте:
-- Главная страница: `https://keykurs.ru/`
-- Информация о сборке: `https://keykurs.ru/version.html`
-
-Если `version.html` показывает белую страницу:
-1. Проверьте логи сборки в Timeweb
-2. Убедитесь, что переменные окружения установлены
-3. Пересоберите образ без кеша (Build Settings → Clear cache)
-
 ## Отличия от оригинала (Supabase-версии)
 
 - `@supabase/supabase-js` удалён — все запросы идут через `src/lib/api.ts` к REST API бэкенда
