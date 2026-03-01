@@ -336,7 +336,7 @@ class SupabaseQueryBuilder<T> {
       params.append('limit', String(this.limitValue));
     }
 
-    const PUBLIC_TABLES = ['featured_courses', 'ad_posts'];
+    const PUBLIC_TABLES = ['featured_courses', 'ad_posts', 'telegram_main_bot', 'telegram_bots'];
     const isPublicTable = PUBLIC_TABLES.includes(this.tableName);
     const endpoint = isPublicTable ? `/api/db/public/${this.tableName}` : `/api/db/${this.tableName}`;
 
