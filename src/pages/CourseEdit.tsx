@@ -151,7 +151,7 @@ export default function CourseEdit() {
   };
 
   const handleThumbnailUpload = (storagePath: string) => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
     setThumbnailUrl(`${API_URL}/api/storage/course-media/${storagePath}`);
     setUploadingThumbnail(false);
   };
@@ -161,7 +161,17 @@ export default function CourseEdit() {
     try {
       if (thumbnailUrl.includes('/course-media/')) {
         const path = thumbnailUrl.split('/course-media/')[1];
-        await supabase.storage.from('course-media').remove([path]);
+        const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+        const authToken = localStorage.getItem('auth_token');
+        await fetch(
+          `${API_URL}/api/storage/course-media/delete?path=${encodeURIComponent(path)}`,
+          {
+            method: 'DELETE',
+            headers: {
+              'Authorization': `Bearer ${authToken}`,
+            },
+          }
+        );
       }
       setThumbnailUrl(null);
     } catch (error) {

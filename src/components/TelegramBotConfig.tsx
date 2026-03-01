@@ -57,12 +57,15 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
   useEffect(() => {
     loadBot();
-    setWebhookUrl(`${import.meta.env.VITE_API_URL}/api/webhook`);
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+    setWebhookUrl(`${API_URL}/api/webhook/telegram`);
     if (isSelectorMode) {
       loadChats();
       loadLinkedChats();
     }
   }, [courseId, sellerId, botId]);
+
+  const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
 
   const loadBot = async () => {
     try {
@@ -87,7 +90,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
         setBot(data);
         setBotToken(data.bot_token);
         setChannelId(data.channel_id || '');
-        setWebhookUrl(`${import.meta.env.VITE_API_URL}/api/webhook?bot_id=${data.id}`);
+        setWebhookUrl(`${API_URL}/api/webhook/telegram?bot_id=${data.id}`);
       }
     } catch (err: any) {
       console.error('Error loading bot:', err);
@@ -101,15 +104,14 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!botId) return;
     setLoadingChats(true);
     try {
-      const authToken = localStorage.getItem('auth_token');
-      if (!authToken) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync/chats/${botId}`,
+        `${API_URL}/api/telegram-chat-sync?action=get_chats&bot_id=${botId}`,
         {
           headers: {
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
         }
       );
@@ -129,15 +131,14 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
   const loadLinkedChats = async () => {
     if (!botId) return;
     try {
-      const authToken = localStorage.getItem('auth_token');
-      if (!authToken) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync/linked-chats/${botId}`,
+        `${API_URL}/api/telegram-chat-sync?action=list_chats&bot_id=${botId}`,
         {
           headers: {
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${session.access_token}`,
           },
         }
       );
@@ -156,16 +157,15 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!selectedChat || !botId) return;
 
     try {
-      const authToken = localStorage.getItem('auth_token');
-      if (!authToken) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync/link-chat`,
+        `${API_URL}/api/telegram-chat-sync?action=link_chat`,
         {
           method: 'POST',
           headers: {
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -198,16 +198,15 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!botId || !confirm('Отвязать чат от курса?')) return;
 
     try {
-      const authToken = localStorage.getItem('auth_token');
-      if (!authToken) return;
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) return;
 
-      const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
       const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync/unlink-chat`,
+        `${API_URL}/api/telegram-chat-sync?action=unlink_chat`,
         {
           method: 'DELETE',
           headers: {
-            Authorization: `Bearer ${authToken}`,
+            Authorization: `Bearer ${session.access_token}`,
             'Content-Type': 'application/json',
           },
           body: JSON.stringify({
@@ -277,7 +276,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
         if (updateError) throw updateError;
 
-        const specificWebhookUrl = `${import.meta.env.VITE_API_URL}/api/webhook?bot_id=${bot.id}`;
+        const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${bot.id}`;
         await fetch(
           `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
         );
@@ -307,7 +306,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
         if (insertError) throw insertError;
 
-        const specificWebhookUrl = `${import.meta.env.VITE_API_URL}/api/webhook?bot_id=${newBot.id}`;
+        const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${newBot.id}`;
         await fetch(
           `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
         );
@@ -353,7 +352,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     setReregisteringWebhook(true);
     setError(null);
     try {
-      const specificWebhookUrl = `${import.meta.env.VITE_API_URL}/api/webhook?bot_id=${bot.id}`;
+      const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${bot.id}`;
       const response = await fetch(
         `https://api.telegram.org/bot${bot.bot_token}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
       );

@@ -26,14 +26,14 @@ class MediaCache {
   }
 
   private async fetchMedia(fileId: string, mediaUrl: string): Promise<string> {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (!session) {
+    const authToken = localStorage.getItem('auth_token');
+    if (!authToken) {
       throw new Error('No authentication session found');
     }
 
     const response = await fetch(mediaUrl, {
       headers: {
-        'Authorization': `Bearer ${session.access_token}`,
+        'Authorization': `Bearer ${authToken}`,
       },
     });
 

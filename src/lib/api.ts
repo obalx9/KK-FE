@@ -1,4 +1,4 @@
-const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
 
 export type UserRole = 'super_admin' | 'seller' | 'student';
 
@@ -194,6 +194,36 @@ async function apiRequest<T>(
   }
 }
 
+async function publicApiRequest<T>(
+  method: string,
+  path: string,
+  body?: unknown
+): Promise<{ data: T | null; error: Error | null }> {
+  try {
+    const headers: Record<string, string> = {
+      'Content-Type': 'application/json',
+    };
+
+    const response = await fetch(`${API_URL}${path}`, {
+      method,
+      headers,
+      body: body ? JSON.stringify(body) : undefined,
+    });
+
+    if (!response.ok) {
+      const errorData = await response.json().catch(() => ({ error: 'Unknown error' }));
+      console.error('[PublicAPI] Request failed:', path, response.status, errorData);
+      return { data: null, error: new Error(errorData.error || `HTTP ${response.status}`) };
+    }
+
+    const data = await response.json();
+    return { data, error: null };
+  } catch (error) {
+    console.error('[PublicAPI] Request error:', path, error);
+    return { data: null, error: error as Error };
+  }
+}
+
 class SupabaseQueryBuilder<T> {
   private tableName: string;
   private selectFields: string = '*';
@@ -301,10 +331,19 @@ class SupabaseQueryBuilder<T> {
       params.append('limit', String(this.limitValue));
     }
 
-    const result = await apiRequest<T | T[]>(
-      'GET',
-      `/api/db/${this.tableName}?${params.toString()}`
-    );
+    const PUBLIC_TABLES = ['featured_courses', 'ad_posts'];
+    const isPublicTable = PUBLIC_TABLES.includes(this.tableName);
+    const endpoint = isPublicTable ? `/api/db/public/${this.tableName}` : `/api/db/${this.tableName}`;
+
+    const result = isPublicTable
+      ? await publicApiRequest<T | T[]>(
+          'GET',
+          `${endpoint}?${params.toString()}`
+        )
+      : await apiRequest<T | T[]>(
+          'GET',
+          `${endpoint}?${params.toString()}`
+        );
 
     if (this.singleResult || this.maybeSingleResult) {
       const data = result.data as T[] | null;

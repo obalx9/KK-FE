@@ -31,12 +31,8 @@ export default function RoleSelectionPage() {
     try {
       setProcessingOAuth(true);
       const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-
-      console.log('[OAuth] Creating session for user:', userId);
-      console.log('[OAuth] API URL:', API_URL);
-
       const response = await fetch(
-        `${API_URL}/api/auth/oauth/session`,
+        `${API_URL}/api/auth/oauth-create-session`,
         {
           method: 'POST',
           headers: {
@@ -47,9 +43,6 @@ export default function RoleSelectionPage() {
       );
 
       const data = await response.json();
-
-      console.log('[OAuth] Response:', { ok: response.ok, status: response.status, hasToken: !!data.token });
-
       if (!response.ok) {
         throw new Error(data.error || `Failed to create session (${response.status})`);
       }
@@ -57,19 +50,14 @@ export default function RoleSelectionPage() {
       if (data.token && data.user) {
         localStorage.setItem('auth_token', data.token);
         localStorage.setItem('auth_user', JSON.stringify(data.user));
-        console.log('[OAuth] Session created, refreshing user...');
         await refreshUser();
-        console.log('[OAuth] User refreshed successfully');
       } else {
-        throw new Error('No token or user data received from server');
+        throw new Error('No token or user data in response');
       }
     } catch (err: any) {
-      console.error('[OAuth] Callback error:', err);
+      console.error('OAuth callback error:', err);
       setError(err.message || 'Authentication failed');
-      setTimeout(() => {
-        console.log('[OAuth] Redirecting to login...');
-        navigate('/login');
-      }, 3000);
+      setTimeout(() => navigate('/login'), 3000);
     } finally {
       setProcessingOAuth(false);
     }

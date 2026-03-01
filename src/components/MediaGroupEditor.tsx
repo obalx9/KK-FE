@@ -290,10 +290,22 @@ export default function MediaGroupEditor({
 
   const updatePostMediaCount = async (count: number) => {
     try {
-      await supabase
-        .from('course_posts')
-        .update({ media_count: count })
-        .eq('id', postId);
+      const { data: { session } } = await supabase.auth.getSession();
+      if (!session) {
+        throw new Error('No session');
+      }
+
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+      const authToken = localStorage.getItem('auth_token');
+
+      await fetch(`${API_URL}/api/db/course_posts?id=eq.${postId}`, {
+        method: 'PATCH',
+        headers: {
+          'Content-Type': 'application/json',
+          'Authorization': `Bearer ${authToken}`
+        },
+        body: JSON.stringify({ media_count: count })
+      });
     } catch (error) {
       console.error('Error updating media count:', error);
     }
@@ -331,11 +343,12 @@ export default function MediaGroupEditor({
 
         try {
           let url: string;
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
           if (item.storage_path) {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
             url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
           } else if (item.telegram_file_id) {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
             const authToken = localStorage.getItem('auth_token');
             if (!authToken) {
               throw new Error('No auth token');

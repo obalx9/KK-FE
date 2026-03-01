@@ -45,11 +45,12 @@ export default function MediaGallery({ items, courseId, onMediaClick, courseWate
 
         try {
           let url: string;
-          const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
 
           if (item.storage_path) {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
             url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
           } else if (item.telegram_file_id) {
+            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
             const fileId = isVideoFile(item) && item.telegram_thumbnail_file_id
               ? item.telegram_thumbnail_file_id
               : item.telegram_file_id;

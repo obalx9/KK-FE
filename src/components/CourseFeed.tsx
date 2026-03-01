@@ -970,11 +970,20 @@ export default function CourseFeed({
 
           if (postError) throw postError;
 
+          const authToken = localStorage.getItem('auth_token');
+          if (!authToken) throw new Error('No auth token');
+
+          const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+
           await Promise.all(
             newPostMediaFiles.map((file, index) =>
-              supabase
-                .from('course_post_media')
-                .insert({
+              fetch(`${API_URL}/api/db/course_post_media`, {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'Authorization': `Bearer ${authToken}`,
+                },
+                body: JSON.stringify({
                   post_id: newPost.id,
                   media_type: file.media_type,
                   storage_path: file.storage_path,
@@ -982,6 +991,7 @@ export default function CourseFeed({
                   file_size: file.file_size,
                   order_index: index,
                 })
+              })
             )
           );
 
@@ -1130,14 +1140,14 @@ export default function CourseFeed({
   };
 
   const getSecureMediaUrl = (fileId: string): string => {
-    const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:3000';
+    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
 
     // If fileId looks like a storage path (contains /), use public storage URL
     if (fileId.includes('/')) {
       return `${API_URL}/api/storage/course-media/${fileId}`;
     }
 
-    // Otherwise, use telegram-media endpoint for telegram files
+    // Otherwise, use telegram-media API endpoint for telegram files
     const url = `${API_URL}/api/media/${encodeURIComponent(fileId)}`;
 
     if (authToken) {

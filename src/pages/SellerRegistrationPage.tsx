@@ -46,6 +46,26 @@ export default function SellerRegistrationPage() {
         throw roleError;
       }
 
+      // Update auth user metadata with new roles
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+      const authToken = localStorage.getItem('auth_token');
+      const response = await fetch(
+        `${API_URL}/api/rpc/update-user-roles`,
+        {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: JSON.stringify({ user_id: user!.id }),
+        }
+      );
+
+      if (!response.ok) {
+        throw new Error('Failed to update user roles');
+      }
+
+      // Refresh user to get updated roles
       await refreshUser();
       navigate('/seller/dashboard');
     } catch (err: any) {

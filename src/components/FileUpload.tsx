@@ -30,14 +30,27 @@ export default function FileUpload({ courseId, lessonId, onUploadComplete }: Fil
         ? `${courseId}/${lessonId}/${fileName}`
         : `${courseId}/${fileName}`;
 
-      const { error: uploadError } = await supabase.storage
-        .from('course-media')
-        .upload(filePath, file, {
-          cacheControl: '3600',
-          upsert: false
-        });
+      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
+      const authToken = localStorage.getItem('auth_token');
 
-      if (uploadError) throw uploadError;
+      const formData = new FormData();
+      formData.append('file', file);
+
+      const uploadResponse = await fetch(
+        `${API_URL}/api/storage/course-media/upload?path=${encodeURIComponent(filePath)}`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${authToken}`,
+          },
+          body: formData,
+        }
+      );
+
+      if (!uploadResponse.ok) {
+        const uploadError = await uploadResponse.json();
+        throw new Error(uploadError.error || 'Upload failed');
+      }
 
       setUploadProgress(100);
       onUploadComplete(filePath, file.size, file.name);
