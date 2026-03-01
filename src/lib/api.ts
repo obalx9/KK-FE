@@ -204,6 +204,11 @@ async function publicApiRequest<T>(
       'Content-Type': 'application/json',
     };
 
+    const token = getAuthToken();
+    if (token) {
+      headers['Authorization'] = `Bearer ${token}`;
+    }
+
     const response = await fetch(`${API_URL}${path}`, {
       method,
       headers,
