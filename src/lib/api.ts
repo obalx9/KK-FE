@@ -177,7 +177,7 @@ class ApiClient {
   }
 
   getOAuthUrl(provider: 'vk' | 'yandex'): string {
-    return `${this.baseURL}/api/auth/oauth/${provider}`;
+    return `${this.baseURL}/api/oauth/${provider}`;
   }
 
   getWebhookUrl(): string {
