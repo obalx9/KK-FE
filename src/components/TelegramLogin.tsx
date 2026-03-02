@@ -1,5 +1,5 @@
 import { useEffect, useState, useRef } from 'react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useAuth } from '../contexts/AuthContext';
 import { Send } from 'lucide-react';
@@ -26,25 +26,9 @@ export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
   useEffect(() => {
     const loadBotConfig = async () => {
       try {
-        const { data: mainBot } = await supabase
-          .from('telegram_main_bot')
-          .select('bot_username')
-          .eq('is_active', true)
-          .maybeSingle();
-
-        if (mainBot?.bot_username) {
-          setBotUsername(mainBot.bot_username);
-          return;
-        }
-
-        const { data: fallbackBot } = await supabase
-          .from('telegram_bots')
-          .select('bot_username')
-          .limit(1)
-          .maybeSingle();
-
-        if (fallbackBot?.bot_username) {
-          setBotUsername(fallbackBot.bot_username);
+        const data = await api.get<{ bot_username: string }>('/api/telegram/main-bot-username', { skipAuth: true });
+        if (data?.bot_username) {
+          setBotUsername(data.bot_username);
         }
       } catch (err) {
         console.error('Error loading bot config:', err);
@@ -64,56 +48,17 @@ export default function TelegramLogin({ onSuccess }: TelegramLoginProps) {
       setError(null);
 
       try {
-        const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-        const response = await fetch(
-          `${API_URL}/api/auth/telegram`,
-          {
-            method: 'POST',
-            headers: {
-              'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(user),
-          }
-        );
+        const data = await api.telegramAuth(user);
 
-        const responseText = await response.text();
+        if (data.token) {
+          api.setAuthToken(data.token);
+          await refreshUser();
 
-        if (!responseText) {
-          throw new Error('Empty response from server');
-        }
-
-        let data;
-        try {
-          data = JSON.parse(responseText);
-        } catch (parseError) {
-          throw new Error(`Invalid JSON response: ${responseText.substring(0, 100)}`);
-        }
-
-        if (data.error) {
-          throw new Error(data.error);
-        }
-
-        if (data.magic_link) {
-          const url = new URL(data.magic_link);
-          const token = url.searchParams.get('token');
-          const type = url.searchParams.get('type');
-
-          if (token && type) {
-            const { error: verifyError } = await supabase.auth.verifyOtp({
-              token_hash: token,
-              type: 'magiclink',
-            });
-
-            if (verifyError) throw verifyError;
-
-            await refreshUser();
-
-            if (onSuccess) {
-              onSuccess();
-            }
+          if (onSuccess) {
+            onSuccess();
           }
         } else {
-          throw new Error('No magic_link in response');
+          throw new Error('No token in response');
         }
       } catch (err: any) {
         console.error('Telegram auth error:', err);

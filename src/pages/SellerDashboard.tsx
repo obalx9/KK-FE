@@ -2,7 +2,7 @@ import { useEffect, useState, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/api';
+import { supabase } from '../lib/supabase';
 import { Store, Plus, Users, BookOpen, LogOut, Edit, Trash2, Eye, Send, MoreVertical, GraduationCap, FileText, X, BookMarked } from 'lucide-react';
 import KeyKursLogo from '../components/KeyKursLogo';
 import LanguageSelector from '../components/LanguageSelector';

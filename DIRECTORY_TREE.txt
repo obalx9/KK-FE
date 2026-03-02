@@ -1,0 +1,131 @@
+deploy/frontend/
+│
+├── Documentation (7 files)
+│   ├── README.md                 - Main project documentation
+│   ├── MIGRATION_GUIDE.md       - Supabase to REST API migration guide
+│   ├── REFACTOR_SCRIPT.md       - Automated refactoring patterns
+│   ├── DEPLOYMENT.md            - Deployment guide for various platforms
+│   ├── CHECKLIST.md             - Complete migration & deployment checklist
+│   ├── FILE_INDEX.md            - Comprehensive file index
+│   └── DIRECTORY_TREE.txt       - Visual directory structure
+│
+├── Configuration (13 files)
+│   ├── Dockerfile               - Multi-stage build (Node + Nginx)
+│   ├── docker-compose.yml       - Docker Compose configuration
+│   ├── .dockerignore           - Docker build exclusions
+│   ├── nginx.conf              - Nginx SPA routing config
+│   ├── .env.example            - Environment variables template
+│   ├── .gitignore              - Git ignore patterns
+│   ├── package.json            - NPM dependencies & scripts
+│   ├── package-lock.json       - Locked dependency versions
+│   ├── vite.config.ts          - Vite bundler configuration
+│   ├── tsconfig.json           - TypeScript base config
+│   ├── tsconfig.app.json       - TypeScript app config
+│   ├── tsconfig.node.json      - TypeScript Node config
+│   ├── eslint.config.js        - ESLint linter config
+│   ├── postcss.config.js       - PostCSS config
+│   └── tailwind.config.js      - TailwindCSS config
+│
+├── Scripts
+│   └── quick-start.sh          - Automated setup script
+│
+├── Entry Point
+│   └── index.html              - HTML entry point
+│
+├── Public Assets
+│   └── public/
+│       ├── _redirects          - Netlify redirects config
+│       └── kursat.svg          - Logo asset
+│
+└── Source Code (src/)
+    │
+    ├── Core (4 files)
+    │   ├── main.tsx            - React app entry point
+    │   ├── App.tsx             - Root component
+    │   ├── index.css           - Global styles
+    │   └── vite-env.d.ts       - Vite type definitions
+    │
+    ├── lib/ (3 files)
+    │   ├── api.ts              ✨ NEW - REST API client
+    │   ├── apiHelpers.ts       ✨ NEW - API helper functions
+    │   └── supabase.ts         ⚠️ LEGACY - To be removed
+    │
+    ├── contexts/ (4 files)
+    │   ├── AuthContext.tsx     ✨ UPDATED - JWT authentication
+    │   ├── ThemeContext.tsx    - Theme state management
+    │   ├── LanguageContext.tsx - i18n language state
+    │   └── ScrollPreferencesContext.tsx - Scroll preferences
+    │
+    ├── hooks/ (1 file)
+    │   └── useIntersectionObserver.ts - Intersection observer hook
+    │
+    ├── pages/ (19 files)
+    │   ├── HomePage.tsx               ⚠️ Needs migration
+    │   ├── LoginPage.tsx              ⚠️ Needs migration
+    │   ├── RoleSelectionPage.tsx      ⚠️ Needs migration
+    │   ├── StudentDashboard.tsx       ⚠️ Needs migration
+    │   ├── CourseView.tsx             ⚠️ Needs migration
+    │   ├── SellerRegistrationPage.tsx ⚠️ Needs migration
+    │   ├── SellerDashboard.tsx        ⚠️ Needs migration
+    │   ├── CourseEdit.tsx             ⚠️ Needs migration
+    │   ├── StudentsManager.tsx        ⚠️ Needs migration
+    │   ├── AdminDashboard.tsx         ⚠️ Needs migration
+    │   ├── DeployPage.tsx             - No changes needed
+    │   ├── admin/
+    │   │   ├── PremiumTab.tsx         ⚠️ Needs migration
+    │   │   ├── AdsTab.tsx             ⚠️ Needs migration
+    │   │   └── FeaturedTab.tsx        ⚠️ Needs migration
+    │   └── docs/
+    │       ├── DocsPage.tsx           - No changes needed
+    │       └── SellerDocsPage.tsx     - No changes needed
+    │
+    ├── components/ (28 files)
+    │   ├── CourseFeed.tsx             ⚠️ Needs migration
+    │   ├── PinnedPostsSidebar.tsx     ⚠️ Needs migration
+    │   ├── MediaGallery.tsx           ⚠️ Needs migration
+    │   ├── MediaModal.tsx             - No changes needed
+    │   ├── MediaThumbnail.tsx         - No changes needed
+    │   ├── MediaGroupEditor.tsx       ⚠️ Needs migration
+    │   ├── VideoPlayer.tsx            - No changes needed
+    │   ├── VoicePlayer.tsx            - No changes needed
+    │   ├── FileUpload.tsx             ⚠️ Needs migration
+    │   ├── ThemeToggle.tsx            - No changes needed
+    │   ├── ThemeCustomizationPanel.tsx      ⚠️ Needs migration
+    │   ├── AdvancedThemeCustomizer.tsx      ⚠️ Needs migration
+    │   ├── ThemePreview.tsx           - No changes needed
+    │   ├── GradientEditor.tsx         - No changes needed
+    │   ├── PostStylePreview.tsx       - No changes needed
+    │   ├── EmojiPattern.tsx           - No changes needed
+    │   ├── BackgroundEmojiPattern.tsx - No changes needed
+    │   ├── PreviewEmojiPattern.tsx    - No changes needed
+    │   ├── OAuthButtons.tsx           ⚠️ Needs migration
+    │   ├── TelegramLogin.tsx          ⚠️ Needs migration
+    │   ├── TelegramBotConfig.tsx      ⚠️ Needs migration
+    │   ├── BottomNavigation.tsx       - No changes needed
+    │   ├── ConfirmDialog.tsx          - No changes needed
+    │   ├── ContentProtectionWarning.tsx - No changes needed
+    │   ├── LanguageSelector.tsx       - No changes needed
+    │   └── KeyKursLogo.tsx            - No changes needed
+    │
+    ├── utils/ (4 files)
+    │   ├── contentProtection.ts   - No changes needed
+    │   ├── mediaCache.ts          - No changes needed
+    │   ├── postStyles.ts          - No changes needed
+    │   └── themePresets.ts        - No changes needed
+    │
+    └── locales/ (1 file)
+        └── translations.ts        - No changes needed
+
+Legend:
+  ✨ NEW      - Newly created or significantly updated for REST API
+  ⚠️ LEGACY   - Still uses Supabase, requires migration to REST API
+  (no marker) - No Supabase dependencies, no changes needed
+
+Statistics:
+  Total Files: 84
+  Documentation: 7
+  Configuration: 13
+  Source Files: 66
+    - Migrated: 2 (api.ts, AuthContext.tsx)
+    - Requires Migration: ~40 files
+    - No Changes Needed: ~24 files

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/api';
+import { api } from '../../lib/api';
 import { Plus, Edit2, Trash2, X, Save, ArrowUp, ArrowDown, Star } from 'lucide-react';
 
 interface FeaturedCourse {
@@ -48,11 +48,12 @@ export default function FeaturedTab() {
 
   const loadCourses = async () => {
     setLoading(true);
-    const { data } = await supabase
-      .from('featured_courses')
-      .select('*')
-      .order('order_index');
-    if (data) setCourses(data);
+    try {
+      const data = await api.getFeaturedCourses();
+      setCourses(data);
+    } catch (error) {
+      console.error('Failed to load featured courses:', error);
+    }
     setLoading(false);
   };
 
@@ -86,28 +87,37 @@ export default function FeaturedTab() {
   const handleSave = async () => {
     if (!form.title.trim()) return;
     setSaving(true);
-    const payload = { ...form, updated_at: new Date().toISOString() };
-
-    if (editingId) {
-      await supabase.from('featured_courses').update(payload).eq('id', editingId);
-    } else {
-      await supabase.from('featured_courses').insert(payload);
+    try {
+      if (editingId) {
+        await api.updateFeaturedCourse(editingId, form);
+      } else {
+        await api.createFeaturedCourse(form as any);
+      }
+      handleCancel();
+      loadCourses();
+    } catch (error) {
+      console.error('Failed to save featured course:', error);
     }
-
     setSaving(false);
-    handleCancel();
-    loadCourses();
   };
 
   const handleDelete = async (id: string) => {
     if (!confirm('Удалить эту карточку из рекомендаций?')) return;
-    await supabase.from('featured_courses').delete().eq('id', id);
-    setCourses(prev => prev.filter(c => c.id !== id));
+    try {
+      await api.deleteFeaturedCourse(id);
+      setCourses(prev => prev.filter(c => c.id !== id));
+    } catch (error) {
+      console.error('Failed to delete featured course:', error);
+    }
   };
 
   const handleToggleActive = async (course: FeaturedCourse) => {
-    await supabase.from('featured_courses').update({ is_active: !course.is_active }).eq('id', course.id);
-    setCourses(prev => prev.map(c => c.id === course.id ? { ...c, is_active: !c.is_active } : c));
+    try {
+      await api.toggleFeaturedCourse(course.id);
+      setCourses(prev => prev.map(c => c.id === course.id ? { ...c, is_active: !c.is_active } : c));
+    } catch (error) {
+      console.error('Failed to toggle featured course:', error);
+    }
   };
 
   const handleMove = async (course: FeaturedCourse, direction: 'up' | 'down') => {
@@ -117,15 +127,16 @@ export default function FeaturedTab() {
     if (swapIdx < 0 || swapIdx >= sorted.length) return;
 
     const other = sorted[swapIdx];
-    await Promise.all([
-      supabase.from('featured_courses').update({ order_index: other.order_index }).eq('id', course.id),
-      supabase.from('featured_courses').update({ order_index: course.order_index }).eq('id', other.id),
-    ]);
-    setCourses(prev => prev.map(c => {
-      if (c.id === course.id) return { ...c, order_index: other.order_index };
-      if (c.id === other.id) return { ...c, order_index: course.order_index };
-      return c;
-    }));
+    try {
+      await api.reorderFeaturedCourse(course.id, other.order_index, course.order_index);
+      setCourses(prev => prev.map(c => {
+        if (c.id === course.id) return { ...c, order_index: other.order_index };
+        if (c.id === other.id) return { ...c, order_index: course.order_index };
+        return c;
+      }));
+    } catch (error) {
+      console.error('Failed to reorder featured course:', error);
+    }
   };
 
   const sortedCourses = [...courses].sort((a, b) => a.order_index - b.order_index);

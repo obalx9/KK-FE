@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { ArrowLeft, Store } from 'lucide-react';
 import KeyKursLogo from '../components/KeyKursLogo';
 import TelegramLogin from '../components/TelegramLogin';
@@ -24,48 +24,12 @@ export default function SellerRegistrationPage() {
     setError(null);
 
     try {
-      const { error: sellerError } = await supabase
-        .from('sellers')
-        .insert({
-          user_id: user!.id,
-          business_name: businessName,
-          description: description,
-          is_approved: false,
-        });
+      await api.post('/api/sellers/register', {
+        business_name: businessName,
+        description: description,
+      });
 
-      if (sellerError) throw sellerError;
-
-      const { error: roleError } = await supabase
-        .from('user_roles')
-        .insert({
-          user_id: user!.id,
-          role: 'seller',
-        });
-
-      if (roleError && !roleError.message.includes('duplicate')) {
-        throw roleError;
-      }
-
-      // Update auth user metadata with new roles
-      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-      const authToken = localStorage.getItem('auth_token');
-      const response = await fetch(
-        `${API_URL}/api/rpc/update-user-roles`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: JSON.stringify({ user_id: user!.id }),
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error('Failed to update user roles');
-      }
-
-      // Refresh user to get updated roles
+      await api.updateUserRoles(['seller']);
       await refreshUser();
       navigate('/seller/dashboard');
     } catch (err: any) {

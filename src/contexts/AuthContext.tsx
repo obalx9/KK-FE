@@ -1,16 +1,17 @@
 import { createContext, useContext, useEffect, useState, useRef, useCallback, ReactNode } from 'react';
-import { supabase } from '../lib/api';
+import { api, User as ApiUser } from '../lib/api';
 
 interface User {
   id: string;
-  user_id?: string;
-  telegram_id: number;
-  telegram_username?: string;
-  first_name?: string;
-  last_name?: string;
-  photo_url?: string;
-  email?: string;
-  oauth_provider?: string;
+  telegram_id: number | null;
+  telegram_username?: string | null;
+  first_name?: string | null;
+  last_name?: string | null;
+  photo_url?: string | null;
+  email?: string | null;
+  is_admin: boolean;
+  is_seller: boolean;
+  seller_id?: string | null;
   roles: string[];
 }
 
@@ -31,59 +32,42 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const loadUser = useCallback(async () => {
     const currentLoadId = ++loadIdRef.current;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
+      const token = localStorage.getItem('auth_token');
 
       if (currentLoadId !== loadIdRef.current) return;
 
-      if (!session?.user) {
+      if (!token) {
         setUser(null);
+        setLoading(false);
         return;
       }
 
-      const metadata = session.user.user_metadata;
-
-      const isTelegramUser = !!metadata.telegram_id;
-      const query = supabase
-        .from('users')
-        .select('id, user_id, telegram_id, telegram_username, first_name, last_name, photo_url, email, oauth_provider');
-
-      const { data: dbUser, error: dbError } = await (
-        isTelegramUser
-          ? query.eq('id', metadata.user_id)
-          : query.eq('user_id', metadata.user_id)
-      ).maybeSingle();
+      const response = await api.get<{ user: ApiUser; roles: string[] }>('/api/auth/me');
 
       if (currentLoadId !== loadIdRef.current) return;
 
-      if (dbError || !dbUser) {
-        setUser(null);
-        return;
-      }
-
-      const { data: roles } = await supabase
-        .from('user_roles')
-        .select('role')
-        .eq('user_id', dbUser.id);
-
-      if (currentLoadId !== loadIdRef.current) return;
+      const dbUser = response.user;
+      const roles = response.roles || [];
 
       setUser({
         id: dbUser.id,
-        user_id: dbUser.user_id,
         telegram_id: dbUser.telegram_id,
         telegram_username: dbUser.telegram_username,
         first_name: dbUser.first_name,
         last_name: dbUser.last_name,
         photo_url: dbUser.photo_url,
         email: dbUser.email,
-        oauth_provider: dbUser.oauth_provider,
-        roles: roles?.map(r => r.role) || [],
+        is_admin: dbUser.is_admin,
+        is_seller: dbUser.is_seller,
+        seller_id: dbUser.seller_id,
+        roles,
       });
 
     } catch (error) {
       if (currentLoadId !== loadIdRef.current) return;
       console.error('Error loading user:', error);
       setUser(null);
+      api.clearAuthToken();
     } finally {
       if (currentLoadId === loadIdRef.current) {
         setLoading(false);
@@ -93,20 +77,15 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   useEffect(() => {
     loadUser();
-
-    const { data: { subscription } } = supabase.auth.onAuthStateChange(() => {
-      loadUser();
-    });
-
-    return () => subscription.unsubscribe();
   }, [loadUser]);
 
   const signOut = async () => {
     try {
-      await supabase.auth.signOut();
+      await api.post('/api/auth/logout');
     } catch (error) {
       console.error('Error signing out:', error);
     } finally {
+      api.clearAuthToken();
       setUser(null);
     }
   };

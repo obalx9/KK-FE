@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/api';
+import { api } from '../../lib/api';
 import { Plus, Edit2, Trash2, X, Save, Eye, EyeOff, ExternalLink, BarChart2, Image } from 'lucide-react';
 import FileUpload from '../../components/FileUpload';
 
@@ -62,31 +62,11 @@ export default function AdsTab() {
 
   const loadAds = async () => {
     setLoading(true);
-    const { data: adsData } = await supabase
-      .from('ad_posts')
-      .select('*')
-      .order('created_at', { ascending: false });
-
-    if (adsData) {
-      const sevenDaysAgo = new Date();
-      sevenDaysAgo.setDate(sevenDaysAgo.getDate() - 7);
-
-      const adsWithStats = await Promise.all(adsData.map(async (ad) => {
-        const { data: statsData } = await supabase
-          .from('ad_post_stats')
-          .select('event_type, created_at')
-          .eq('ad_post_id', ad.id);
-
-        const stats = {
-          impressions: statsData?.filter(s => s.event_type === 'impression').length || 0,
-          clicks: statsData?.filter(s => s.event_type === 'click').length || 0,
-          impressions_7d: statsData?.filter(s => s.event_type === 'impression' && new Date(s.created_at) > sevenDaysAgo).length || 0,
-          clicks_7d: statsData?.filter(s => s.event_type === 'click' && new Date(s.created_at) > sevenDaysAgo).length || 0,
-        };
-        return { ...ad, stats };
-      }));
-
-      setAds(adsWithStats);
+    try {
+      const adsData = await api.getAds();
+      setAds(adsData);
+    } catch (error) {
+      console.error('Failed to load ads:', error);
     }
     setLoading(false);
   };
@@ -140,7 +120,11 @@ export default function AdsTab() {
 
   const handleRemoveMedia = async () => {
     if (form.storage_path) {
-      await supabase.storage.from('course-media').remove([form.storage_path]);
+      try {
+        await api.deleteMedia(form.storage_path);
+      } catch (error) {
+        console.error('Failed to delete media:', error);
+      }
     }
     setForm(prev => ({ ...prev, storage_path: '', file_name: '', media_type: '' }));
   };
@@ -157,37 +141,46 @@ export default function AdsTab() {
       storage_path: form.storage_path || null,
       file_name: form.file_name || null,
       media_type: form.media_type || null,
-      updated_at: new Date().toISOString(),
     };
 
-    if (editingId) {
-      await supabase.from('ad_posts').update(payload).eq('id', editingId);
-    } else {
-      await supabase.from('ad_posts').insert(payload);
+    try {
+      if (editingId) {
+        await api.updateAd(editingId, payload);
+      } else {
+        await api.createAd(payload);
+      }
+      handleCancel();
+      loadAds();
+    } catch (error) {
+      console.error('Failed to save ad:', error);
     }
-
     setSaving(false);
-    handleCancel();
-    loadAds();
   };
 
   const handleDelete = async (ad: AdPost) => {
     if (!confirm('Удалить этот рекламный пост?')) return;
-    if (ad.storage_path) {
-      await supabase.storage.from('course-media').remove([ad.storage_path]);
+    try {
+      if (ad.storage_path) {
+        await api.deleteMedia(ad.storage_path);
+      }
+      await api.deleteAd(ad.id);
+      setAds(prev => prev.filter(a => a.id !== ad.id));
+    } catch (error) {
+      console.error('Failed to delete ad:', error);
     }
-    await supabase.from('ad_posts').delete().eq('id', ad.id);
-    setAds(prev => prev.filter(a => a.id !== ad.id));
   };
 
   const handleToggleActive = async (ad: AdPost) => {
-    await supabase.from('ad_posts').update({ is_active: !ad.is_active }).eq('id', ad.id);
-    setAds(prev => prev.map(a => a.id === ad.id ? { ...a, is_active: !a.is_active } : a));
+    try {
+      await api.updateAd(ad.id, { is_active: !ad.is_active });
+      setAds(prev => prev.map(a => a.id === ad.id ? { ...a, is_active: !a.is_active } : a));
+    } catch (error) {
+      console.error('Failed to toggle ad active state:', error);
+    }
   };
 
   const getMediaUrl = (path: string) => {
-    const { data } = supabase.storage.from('course-media').getPublicUrl(path);
-    return data.publicUrl;
+    return api.getMediaPublicUrl(path);
   };
 
   if (loading) {

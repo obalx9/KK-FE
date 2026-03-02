@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { X, Send, Check, AlertCircle, Copy, ExternalLink, Plus, Trash2, Radio } from 'lucide-react';
 
@@ -57,40 +57,26 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
   useEffect(() => {
     loadBot();
-    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-    setWebhookUrl(`${API_URL}/api/webhook/telegram`);
+    setWebhookUrl(api.getWebhookUrl());
     if (isSelectorMode) {
       loadChats();
       loadLinkedChats();
     }
   }, [courseId, sellerId, botId]);
 
-  const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-
   const loadBot = async () => {
     try {
-      let query;
-      if (isSelectorMode && botId) {
-        query = supabase
-          .from('telegram_bots')
-          .select('*')
-          .eq('id', botId);
-      } else {
-        query = supabase
-          .from('telegram_bots')
-          .select('*')
-          .eq('course_id', courseId);
-      }
+      const endpoint = isSelectorMode && botId
+        ? `/api/telegram/bots/${botId}`
+        : `/api/courses/${courseId}/bot`;
 
-      const { data, error } = await query.maybeSingle();
-
-      if (error && error.code !== 'PGRST116') throw error;
+      const data = await api.get<TelegramBot>(endpoint);
 
       if (data) {
         setBot(data);
         setBotToken(data.bot_token);
         setChannelId(data.channel_id || '');
-        setWebhookUrl(`${API_URL}/api/webhook/telegram?bot_id=${data.id}`);
+        setWebhookUrl(`${api.getWebhookUrl()}?bot_id=${data.id}`);
       }
     } catch (err: any) {
       console.error('Error loading bot:', err);
@@ -104,19 +90,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!botId) return;
     setLoadingChats(true);
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync?action=get_chats&bot_id=${botId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
+      const result = await api.getTelegramChats(botId, 'get_chats');
       if (result.ok) {
         setAvailableChats(result.chats || []);
       }
@@ -131,19 +105,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
   const loadLinkedChats = async () => {
     if (!botId) return;
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
-
-      const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync?action=list_chats&bot_id=${botId}`,
-        {
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-          },
-        }
-      );
-
-      const result = await response.json();
+      const result = await api.getTelegramChats(botId, 'list_chats');
       if (result.ok) {
         const courseLevelChats = result.chats.filter((chat: LinkedChat) => chat.course_id === courseId);
         setLinkedChats(courseLevelChats);
@@ -157,28 +119,12 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!selectedChat || !botId) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const result = await api.linkTelegramChat({
+        bot_id: botId,
+        chat_id: selectedChat.id.toString(),
+        course_id: courseId,
+      });
 
-      const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync?action=link_chat`,
-        {
-          method: 'POST',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            bot_id: botId,
-            chat_id: selectedChat.id,
-            chat_title: selectedChat.title || `Chat ${selectedChat.id}`,
-            chat_type: selectedChat.type,
-            course_id: courseId,
-          }),
-        }
-      );
-
-      const result = await response.json();
       if (result.ok) {
         setSuccess(true);
         setSelectedChat(null);
@@ -198,26 +144,11 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     if (!botId || !confirm('Отвязать чат от курса?')) return;
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) return;
+      const result = await api.unlinkTelegramChat({
+        bot_id: botId,
+        course_id: courseId,
+      });
 
-      const response = await fetch(
-        `${API_URL}/api/telegram-chat-sync?action=unlink_chat`,
-        {
-          method: 'DELETE',
-          headers: {
-            Authorization: `Bearer ${session.access_token}`,
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({
-            bot_id: botId,
-            chat_id: chatId,
-            course_id: courseId,
-          }),
-        }
-      );
-
-      const result = await response.json();
       if (result.ok) {
         setSuccess(true);
         await loadLinkedChats();
@@ -253,63 +184,24 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
       const botUsername = data.result.username;
 
-      const { data: existingBot } = await supabase
-        .from('telegram_bots')
-        .select('id, course_id')
-        .eq('bot_token', botToken)
-        .neq('course_id', courseId)
-        .maybeSingle();
-
-      if (existingBot) {
-        throw new Error('Этот бот уже используется для другого курса. Каждый курс должен иметь отдельного бота.');
-      }
-
       if (bot) {
-        const { error: updateError } = await supabase
-          .from('telegram_bots')
-          .update({
-            bot_token: botToken,
-            bot_username: botUsername,
-            is_active: true,
-          })
-          .eq('id', bot.id);
+        await api.put(`/api/telegram/bots/${bot.id}`, {
+          bot_token: botToken,
+          bot_username: botUsername,
+          is_active: true,
+        });
 
-        if (updateError) throw updateError;
-
-        const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${bot.id}`;
-        await fetch(
-          `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
-        );
+        const specificWebhookUrl = `${api.getWebhookUrl()}?bot_id=${bot.id}`;
+        await api.registerTelegramWebhook({ botToken, botId: bot.id });
       } else {
-        const { data: { session: authSession } } = await supabase.auth.getSession();
-        let currentSellerId: string | null = null;
-        if (authSession?.user) {
-          const { data: sellerData } = await supabase
-            .from('sellers')
-            .select('id')
-            .eq('user_id', authSession.user.id)
-            .maybeSingle();
-          currentSellerId = sellerData?.id || null;
-        }
+        const newBot = await api.post<{ id: string }>(`/api/courses/${courseId}/bot`, {
+          bot_token: botToken,
+          bot_username: botUsername,
+          is_active: true,
+        });
 
-        const { data: newBot, error: insertError } = await supabase
-          .from('telegram_bots')
-          .insert({
-            course_id: courseId,
-            bot_token: botToken,
-            bot_username: botUsername,
-            is_active: true,
-            seller_id: currentSellerId,
-          })
-          .select('id')
-          .single();
-
-        if (insertError) throw insertError;
-
-        const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${newBot.id}`;
-        await fetch(
-          `https://api.telegram.org/bot${botToken}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
-        );
+        const specificWebhookUrl = `${api.getWebhookUrl()}?bot_id=${newBot.id}`;
+        await api.registerTelegramWebhook({ botToken, botId: newBot.id });
       }
 
       setSuccess(true);
@@ -329,12 +221,9 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     setSavingChannel(true);
     setError(null);
     try {
-      const { error: updateError } = await supabase
-        .from('telegram_bots')
-        .update({ channel_id: channelId.trim() || null })
-        .eq('id', bot.id);
-
-      if (updateError) throw updateError;
+      await api.put(`/api/telegram/bots/${bot.id}`, {
+        channel_id: channelId.trim() || null
+      });
 
       setBot({ ...bot, channel_id: channelId.trim() || null });
       setChannelSuccess(true);
@@ -352,12 +241,8 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
     setReregisteringWebhook(true);
     setError(null);
     try {
-      const specificWebhookUrl = `${API_URL}/api/webhook/telegram?bot_id=${bot.id}`;
-      const response = await fetch(
-        `https://api.telegram.org/bot${bot.bot_token}/setWebhook?url=${encodeURIComponent(specificWebhookUrl)}`
-      );
-      const data = await response.json();
-      if (!data.ok) throw new Error(data.description || 'Failed to set webhook');
+      await api.registerTelegramWebhook({ botToken: bot.bot_token, botId: bot.id });
+      const specificWebhookUrl = `${api.getWebhookUrl()}?bot_id=${bot.id}`;
       setWebhookUrl(specificWebhookUrl);
       setWebhookSuccess(true);
       setTimeout(() => setWebhookSuccess(false), 3000);
@@ -374,16 +259,7 @@ export default function TelegramBotConfig({ courseId, sellerId, botId, onClose }
 
     setSaving(true);
     try {
-      const { error } = await supabase
-        .from('telegram_bots')
-        .update({ is_active: false })
-        .eq('id', bot.id);
-
-      if (error) throw error;
-
-      await fetch(
-        `https://api.telegram.org/bot${bot.bot_token}/deleteWebhook`
-      );
+      await api.delete(`/api/telegram/bots/${bot.id}`);
 
       setSuccess(true);
       setTimeout(() => {

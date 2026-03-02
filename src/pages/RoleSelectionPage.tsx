@@ -2,7 +2,7 @@ import { useState, useEffect } from 'react';
 import { useNavigate, useSearchParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { BookOpen, Store, LogOut, Sparkles, Copy, Check } from 'lucide-react';
 import KeyKursLogo from '../components/KeyKursLogo';
 import LanguageSelector from '../components/LanguageSelector';
@@ -30,34 +30,15 @@ export default function RoleSelectionPage() {
   const handleOAuthCallback = async (userId: string) => {
     try {
       setProcessingOAuth(true);
-      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-      const response = await fetch(
-        `${API_URL}/api/auth/oauth-create-session`,
-        {
-          method: 'POST',
-          headers: {
-            'Content-Type': 'application/json',
-          },
-          body: JSON.stringify({ user_id: userId }),
-        }
-      );
+      const data = await api.oauthCreateSession(userId);
 
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.error || `Failed to create session (${response.status})`);
-      }
-
-      if (data.token && data.user) {
-        localStorage.setItem('auth_token', data.token);
-        localStorage.setItem('auth_user', JSON.stringify(data.user));
+      if (data.pkce_session_id) {
         await refreshUser();
-      } else {
-        throw new Error('No token or user data in response');
       }
     } catch (err: any) {
       console.error('OAuth callback error:', err);
       setError(err.message || 'Authentication failed');
-      setTimeout(() => navigate('/login'), 3000);
+      setTimeout(() => navigate('/login'), 2000);
     } finally {
       setProcessingOAuth(false);
     }

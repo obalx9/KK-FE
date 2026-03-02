@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { Shield, Users, Store, BookOpen, LogOut, Check, X, Crown, Megaphone, Star, Bot, Save, AlertCircle, CheckCircle } from 'lucide-react';
 import LanguageSelector from '../components/LanguageSelector';
 import ThemeToggle from '../components/ThemeToggle';
@@ -69,15 +69,15 @@ export default function AdminDashboard() {
   }, [user, loading, navigate]);
 
   const loadMainBot = async () => {
-    const { data } = await supabase
-      .from('telegram_main_bot')
-      .select('*')
-      .eq('is_active', true)
-      .maybeSingle();
-    if (data) {
-      setMainBotId(data.id);
-      setMainBotToken(data.bot_token || '');
-      setMainBotUsername(data.bot_username || '');
+    try {
+      const data = await api.get('/api/admin/telegram-main-bot');
+      if (data) {
+        setMainBotId(data.id);
+        setMainBotToken(data.bot_token || '');
+        setMainBotUsername(data.bot_username || '');
+      }
+    } catch (error) {
+      console.error('Failed to load main bot:', error);
     }
   };
 
@@ -86,19 +86,14 @@ export default function AdminDashboard() {
     setSavingBot(true);
     setBotSaveStatus('idle');
     try {
+      const payload = {
+        bot_token: mainBotToken.trim(),
+        bot_username: mainBotUsername.trim().replace('@', ''),
+      };
       if (mainBotId) {
-        const { error } = await supabase
-          .from('telegram_main_bot')
-          .update({ bot_token: mainBotToken.trim(), bot_username: mainBotUsername.trim().replace('@', ''), updated_at: new Date().toISOString() })
-          .eq('id', mainBotId);
-        if (error) throw error;
+        await api.put(`/api/admin/telegram-main-bot/${mainBotId}`, payload);
       } else {
-        const { data, error } = await supabase
-          .from('telegram_main_bot')
-          .insert({ bot_token: mainBotToken.trim(), bot_username: mainBotUsername.trim().replace('@', ''), is_active: true })
-          .select()
-          .single();
-        if (error) throw error;
+        const data = await api.post('/api/admin/telegram-main-bot', payload);
         setMainBotId(data.id);
       }
       setBotSaveStatus('success');
@@ -114,33 +109,18 @@ export default function AdminDashboard() {
   const loadData = async () => {
     try {
       loadMainBot();
-      const [usersRes, sellersRes, coursesRes, pendingRes] = await Promise.all([
-        supabase.from('users').select('id', { count: 'exact', head: true }),
-        supabase.from('sellers').select('id', { count: 'exact', head: true }),
-        supabase.from('courses').select('id', { count: 'exact', head: true }),
-        supabase
-          .from('sellers')
-          .select(`
-            id,
-            business_name,
-            description,
-            is_approved,
-            user:users!sellers_user_id_fkey (
-              first_name,
-              last_name,
-              telegram_username
-            )
-          `)
-          .eq('is_approved', false),
+      const [statsData, pendingSellers] = await Promise.all([
+        api.getAdminStats(),
+        api.get('/api/admin/pending-sellers'),
       ]);
 
       setStats({
-        totalUsers: usersRes.count || 0,
-        totalSellers: sellersRes.count || 0,
-        totalCourses: coursesRes.count || 0,
-        pendingSellers: pendingRes.data?.length || 0,
+        totalUsers: statsData.totalUsers || 0,
+        totalSellers: statsData.totalSellers || 0,
+        totalCourses: statsData.totalCourses || 0,
+        pendingSellers: pendingSellers?.length || 0,
       });
-      setPendingSellers(pendingRes.data || []);
+      setPendingSellers(pendingSellers || []);
     } catch (error) {
       console.error('Error loading data:', error);
     } finally {
@@ -150,11 +130,7 @@ export default function AdminDashboard() {
 
   const handleApproveSeller = async (sellerId: string) => {
     try {
-      const { error } = await supabase
-        .from('sellers')
-        .update({ is_approved: true })
-        .eq('id', sellerId);
-      if (error) throw error;
+      await api.put(`/api/admin/sellers/${sellerId}/approve`, {});
       setPendingSellers(pendingSellers.filter(s => s.id !== sellerId));
       setStats(prev => ({ ...prev, pendingSellers: prev.pendingSellers - 1 }));
     } catch (error) {
@@ -166,8 +142,7 @@ export default function AdminDashboard() {
   const handleRejectSeller = async (sellerId: string) => {
     if (!confirm(t('rejectSellerConfirm'))) return;
     try {
-      const { error } = await supabase.from('sellers').delete().eq('id', sellerId);
-      if (error) throw error;
+      await api.deleteAdminSeller(sellerId);
       setPendingSellers(pendingSellers.filter(s => s.id !== sellerId));
       setStats(prev => ({ ...prev, pendingSellers: prev.pendingSellers - 1 }));
     } catch (error) {

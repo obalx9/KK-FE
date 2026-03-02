@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { Upload, X, Loader } from 'lucide-react';
 
@@ -24,36 +24,10 @@ export default function FileUpload({ courseId, lessonId, onUploadComplete }: Fil
     setUploadProgress(0);
 
     try {
-      const fileExt = file.name.split('.').pop();
-      const fileName = `${Date.now()}_${Math.random().toString(36).substring(7)}.${fileExt}`;
-      const filePath = lessonId
-        ? `${courseId}/${lessonId}/${fileName}`
-        : `${courseId}/${fileName}`;
-
-      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-      const authToken = localStorage.getItem('auth_token');
-
-      const formData = new FormData();
-      formData.append('file', file);
-
-      const uploadResponse = await fetch(
-        `${API_URL}/api/storage/course-media/upload?path=${encodeURIComponent(filePath)}`,
-        {
-          method: 'POST',
-          headers: {
-            'Authorization': `Bearer ${authToken}`,
-          },
-          body: formData,
-        }
-      );
-
-      if (!uploadResponse.ok) {
-        const uploadError = await uploadResponse.json();
-        throw new Error(uploadError.error || 'Upload failed');
-      }
+      const result = await api.uploadMedia(file);
 
       setUploadProgress(100);
-      onUploadComplete(filePath, file.size, file.name);
+      onUploadComplete(result.path, result.size, file.name);
     } catch (err: any) {
       console.error('Upload error:', err);
       setError(err.message || t('uploadFailed'));

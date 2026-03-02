@@ -1,6 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { Play } from 'lucide-react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 
 export interface MediaItem {
   id: string;
@@ -47,27 +47,14 @@ export default function MediaGallery({ items, courseId, onMediaClick, courseWate
           let url: string;
 
           if (item.storage_path) {
-            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-            url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
+            url = api.getMediaUrl(item.storage_path);
           } else if (item.telegram_file_id) {
-            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
             const fileId = isVideoFile(item) && item.telegram_thumbnail_file_id
               ? item.telegram_thumbnail_file_id
               : item.telegram_file_id;
 
-            const authToken = localStorage.getItem('auth_token');
-            if (!authToken) {
-              throw new Error('No auth token');
-            }
-
-            const response = await fetch(
-              `${API_URL}/api/media/${encodeURIComponent(fileId)}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${authToken}`,
-                },
-              }
-            );
+            const data = await api.generateMediaToken(fileId);
+            url = data.url;
 
             if (!response.ok) {
               throw new Error(`Failed to fetch: ${response.status}`);

@@ -1,5 +1,5 @@
 import { useEffect, useState } from 'react';
-import { supabase } from '../../lib/api';
+import { supabase } from '../../lib/supabase';
 import { Crown, Calendar, X, Plus } from 'lucide-react';
 
 interface Seller {

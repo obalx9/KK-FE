@@ -1,5 +1,5 @@
 import { useState, useEffect, useRef, useCallback } from 'react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import { useLanguage } from '../contexts/LanguageContext';
 import { useScrollPreferences } from '../contexts/ScrollPreferencesContext';
 import { useTheme } from '../contexts/ThemeContext';
@@ -304,9 +304,9 @@ export default function CourseFeed({
   }, [activePostIndex, filteredPosts.length, onPositionChange]);
 
   const loadAuthToken = async () => {
-    const { data: { session } } = await supabase.auth.getSession();
-    if (session?.access_token) {
-      setAuthToken(session.access_token);
+    const token = localStorage.getItem('auth_token');
+    if (token) {
+      setAuthToken(token);
     }
   };
 
@@ -365,13 +365,9 @@ export default function CourseFeed({
 
   const recordAdStat = async (adId: string, eventType: 'impression' | 'click') => {
     try {
-      const userId = authUser?.id || null;
-      await supabase.from('ad_post_stats').insert({
-        ad_post_id: adId,
-        event_type: eventType,
-        user_id: userId,
-        course_id: courseId,
-      });
+      if (eventType === 'impression') {
+        await api.recordAdView(adId);
+      }
     } catch {
       /* silent */
     }
@@ -929,9 +925,7 @@ export default function CourseFeed({
         const oldPost = posts.find(p => p.id === editingPostId);
 
         if (oldPost?.storage_path && oldPost.storage_path !== formData.storage_path && formData.storage_path) {
-          await supabase.storage
-            .from('course-media')
-            .remove([oldPost.storage_path]);
+          await api.deleteMedia(oldPost.storage_path);
         }
 
         const { error } = await supabase
@@ -970,27 +964,15 @@ export default function CourseFeed({
 
           if (postError) throw postError;
 
-          const authToken = localStorage.getItem('auth_token');
-          if (!authToken) throw new Error('No auth token');
-
-          const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-
           await Promise.all(
             newPostMediaFiles.map((file, index) =>
-              fetch(`${API_URL}/api/db/course_post_media`, {
-                method: 'POST',
-                headers: {
-                  'Content-Type': 'application/json',
-                  'Authorization': `Bearer ${authToken}`,
-                },
-                body: JSON.stringify({
-                  post_id: newPost.id,
-                  media_type: file.media_type,
-                  storage_path: file.storage_path,
-                  file_name: file.file_name,
-                  file_size: file.file_size,
-                  order_index: index,
-                })
+              api.post('/api/post-media', {
+                post_id: newPost.id,
+                media_type: file.media_type,
+                storage_path: file.storage_path,
+                file_name: file.file_name,
+                file_size: file.file_size,
+                order_index: index,
               })
             )
           );
@@ -1140,21 +1122,11 @@ export default function CourseFeed({
   };
 
   const getSecureMediaUrl = (fileId: string): string => {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-
-    // If fileId looks like a storage path (contains /), use public storage URL
     if (fileId.includes('/')) {
-      return `${API_URL}/api/storage/course-media/${fileId}`;
+      return api.getMediaUrl(fileId);
     }
 
-    // Otherwise, use telegram-media API endpoint for telegram files
-    const url = `${API_URL}/api/media/${encodeURIComponent(fileId)}`;
-
-    if (authToken) {
-      return `${url}?token=${encodeURIComponent(authToken)}`;
-    }
-
-    return url;
+    return api.getMediaUrl(`telegram/${fileId}/${courseId}`);
   };
 
   if (loading) {
@@ -1401,7 +1373,7 @@ export default function CourseFeed({
                 if (item.type === 'ad') {
                   const ad = item.data;
                   const adMediaUrl = ad.storage_path
-                    ? supabase.storage.from('course-media').getPublicUrl(ad.storage_path).data.publicUrl
+                    ? api.getMediaPublicUrl(ad.storage_path)
                     : null;
                   return (
                     <AdCard

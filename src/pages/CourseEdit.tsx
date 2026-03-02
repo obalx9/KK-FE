@@ -2,7 +2,7 @@ import { useEffect, useState } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../contexts/AuthContext';
 import { useLanguage } from '../contexts/LanguageContext';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import {
   ArrowLeft, Save, Eye, EyeOff, Settings, Search, Upload, X, Users,
   ExternalLink, Palette, Copy, Check, Send, LayoutList, ChevronDown,
@@ -151,8 +151,7 @@ export default function CourseEdit() {
   };
 
   const handleThumbnailUpload = (storagePath: string) => {
-    const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-    setThumbnailUrl(`${API_URL}/api/storage/course-media/${storagePath}`);
+    setThumbnailUrl(api.getMediaUrl(storagePath));
     setUploadingThumbnail(false);
   };
 
@@ -161,17 +160,7 @@ export default function CourseEdit() {
     try {
       if (thumbnailUrl.includes('/course-media/')) {
         const path = thumbnailUrl.split('/course-media/')[1];
-        const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-        const authToken = localStorage.getItem('auth_token');
-        await fetch(
-          `${API_URL}/api/storage/course-media/delete?path=${encodeURIComponent(path)}`,
-          {
-            method: 'DELETE',
-            headers: {
-              'Authorization': `Bearer ${authToken}`,
-            },
-          }
-        );
+        await api.deleteMedia(path);
       }
       setThumbnailUrl(null);
     } catch (error) {

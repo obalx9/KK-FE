@@ -1,6 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
 import { Trash2, Upload, GripVertical, X, Save, Video } from 'lucide-react';
-import { supabase } from '../lib/api';
+import { api } from '../lib/api';
 import FileUpload from './FileUpload';
 import type { MediaItem } from './MediaGallery';
 
@@ -39,9 +39,9 @@ export default function MediaGroupEditor({
     console.log('[MediaGroupEditor] Migrating legacy media:', legacyItems);
 
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        console.error('[MediaGroupEditor] No session for migration');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        console.error('[MediaGroupEditor] No auth token for migration');
         return;
       }
 
@@ -113,9 +113,9 @@ export default function MediaGroupEditor({
         await migrateLegacyMedia();
       }
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No auth token');
       }
 
       let mediaType = 'image';
@@ -179,9 +179,9 @@ export default function MediaGroupEditor({
     try {
       console.log('[MediaGroupEditor] Deleting media:', mediaId);
 
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No auth token');
       }
 
       if (mediaId.startsWith('legacy-')) {
@@ -262,9 +262,9 @@ export default function MediaGroupEditor({
   const reorderMediaItems = async (items: MediaItem[]) => {
     try {
       console.log('[MediaGroupEditor] Reordering media items');
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
+      const token = localStorage.getItem('auth_token');
+      if (!token) {
+        throw new Error('No auth token');
       }
 
       await Promise.all(
@@ -290,22 +290,7 @@ export default function MediaGroupEditor({
 
   const updatePostMediaCount = async (count: number) => {
     try {
-      const { data: { session } } = await supabase.auth.getSession();
-      if (!session) {
-        throw new Error('No session');
-      }
-
-      const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-      const authToken = localStorage.getItem('auth_token');
-
-      await fetch(`${API_URL}/api/db/course_posts?id=eq.${postId}`, {
-        method: 'PATCH',
-        headers: {
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${authToken}`
-        },
-        body: JSON.stringify({ media_count: count })
-      });
+      await api.patch(`/api/posts/${postId}`, { media_count: count });
     } catch (error) {
       console.error('Error updating media count:', error);
     }
@@ -345,31 +330,10 @@ export default function MediaGroupEditor({
           let url: string;
 
           if (item.storage_path) {
-            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-            url = `${API_URL}/api/storage/course-media/${item.storage_path}`;
+            url = api.getMediaUrl(item.storage_path);
           } else if (item.telegram_file_id) {
-            const API_URL = import.meta.env.VITE_API_URL || 'https://api.keykurs.ru';
-            const authToken = localStorage.getItem('auth_token');
-            if (!authToken) {
-              throw new Error('No auth token');
-            }
-
-            const response = await fetch(
-              `${API_URL}/api/media/${encodeURIComponent(item.telegram_file_id)}`,
-              {
-                headers: {
-                  'Authorization': `Bearer ${authToken}`,
-                },
-              }
-            );
-
-            if (!response.ok) {
-              throw new Error(`Failed to fetch: ${response.status}`);
-            }
-
-            const blob = await response.blob();
-            url = URL.createObjectURL(blob);
-            blobUrlsRef.current.add(url);
+            const data = await api.generateMediaToken(item.telegram_file_id);
+            url = data.url;
           } else {
             continue;
           }

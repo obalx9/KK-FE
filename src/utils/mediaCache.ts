@@ -1,5 +1,3 @@
-import { supabase } from '../lib/api';
-
 class MediaCache {
   private cache: Map<string, string> = new Map();
   private loading: Map<string, Promise<string>> = new Map();
@@ -26,14 +24,14 @@ class MediaCache {
   }
 
   private async fetchMedia(fileId: string, mediaUrl: string): Promise<string> {
-    const authToken = localStorage.getItem('auth_token');
-    if (!authToken) {
-      throw new Error('No authentication session found');
+    const token = localStorage.getItem('auth_token');
+    if (!token) {
+      throw new Error('No authentication token found');
     }
 
     const response = await fetch(mediaUrl, {
       headers: {
-        'Authorization': `Bearer ${authToken}`,
+        'Authorization': `Bearer ${token}`,
       },
     });
 
